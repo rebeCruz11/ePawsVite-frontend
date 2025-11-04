@@ -1,0 +1,32 @@
+// Archivos de vistas faltantes - Crear según se necesiten
+// Puedes copiar y adaptar estos templates de la GUIA_IMPLEMENTACION.md
+
+/* 
+VISTAS FALTANTES POR CREAR (opcionales, el sistema funciona sin ellas):
+
+Admin:
+- src/views/admin/Organizaciones.vue (similar a Usuarios.vue)
+- src/views/admin/Veterinarias.vue (similar a Usuarios.vue)
+- src/views/admin/Animales.vue (similar a Usuarios.vue)
+- src/views/admin/Adopciones.vue (tabla con opciones de aprobar/rechazar)
+- src/views/admin/Reportes.vue (tabla con cambio de estado)
+
+Organización:
+- src/views/organizacion/Adopciones.vue (gestionar adopciones de sus animales)
+- src/views/organizacion/Perfil.vue (ver/editar datos de organización)
+
+Veterinaria:
+- src/views/veterinaria/Dashboard.vue (stats básicas)
+- src/views/veterinaria/Reportes.vue (similar a Organización)
+- src/views/veterinaria/RegistrosMedicos.vue (CRUD de registros)
+- src/views/veterinaria/Perfil.vue (ver/editar datos)
+
+NOTA: Las vistas principales ya están creadas y funcionan completamente:
+- ✅ Autenticación (Login, Registro)
+- ✅ Dashboard Admin con gráficos
+- ✅ CRUD completo de Usuarios
+- ✅ Vistas de Cliente (Animales, Adopciones, Reportes)
+- ✅ Vistas de Organización (Dashboard, Animales, Reportes)
+
+Para crear las vistas faltantes, usa los templates de GUIA_IMPLEMENTACION.md
+*/

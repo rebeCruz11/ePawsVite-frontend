@@ -1,0 +1,9 @@
+<template><div class="fade-in"><h2 class="mb-4"><i class="bi bi-building me-2"></i>Mi Perfil de Organización</h2><Loading v-if="cargando"/><div v-else class="card"><div class="card-body p-4"><div class="row"><div class="col-md-3 text-center"><div class="avatar-lg bg-primary mx-auto mb-3" style="width:120px;height:120px;font-size:3rem;">{{ iniciales }}</div></div><div class="col-md-9"><h3>{{ organizacion.nombreOrganizacion }}</h3><p class="text-muted mb-3">{{ organizacion.descripcion }}</p><div class="row"><div class="col-md-6 mb-3"><strong>Responsable:</strong><p>{{ nombreCompleto(organizacion.usuario) }}</p></div><div class="col-md-6 mb-3"><strong>Correo:</strong><p>{{ organizacion.usuario.correo }}</p></div><div class="col-md-6 mb-3"><strong>Teléfono:</strong><p>{{ organizacion.telefono }}</p></div><div class="col-md-6 mb-3"><strong>Dirección:</strong><p>{{ organizacion.direccion }}</p></div></div></div></div></div></div></div></template>
+<script>
+import {ref,computed,onMounted} from 'vue';
+import {useAuthStore} from '../../stores/auth';
+import Loading from '../../components/common/Loading.vue';
+import organizacionService from '../../services/organizacionService';
+import {manejarErrorAPI} from '../../utils/alertas';
+import {nombreCompleto,obtenerIniciales} from '../../utils/helpers';
+export default{name:'OrganizacionPerfil',components:{Loading},setup(){const authStore=useAuthStore();const cargando=ref(true);const organizacion=ref(null);const iniciales=computed(()=>organizacion.value?organizacion.value.nombreOrganizacion.substring(0,2).toUpperCase():'');const cargar=async()=>{try{const r=await organizacionService.getByUsuario(authStore.usuarioActual.idUsuario);organizacion.value=r.data;}catch(e){manejarErrorAPI(e);}finally{cargando.value=false;}};onMounted(()=>cargar());return{cargando,organizacion,iniciales,nombreCompleto};}}</script>
