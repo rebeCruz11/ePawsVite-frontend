@@ -30,13 +30,28 @@
                   </span>
                 </td>
                 <td>
-                  <button 
-                    v-if="reporte.fotoUrl" 
-                    class="btn btn-sm btn-info"
-                    @click="verFoto(reporte.fotoUrl)"
-                  >
-                    <i class="bi bi-image"></i>
-                  </button>
+                  <div class="d-flex align-items-center">
+                    <button 
+                      v-if="reporte.fotoUrl" 
+                      class="btn btn-sm btn-info me-2"
+                      @click="verFoto(reporte.fotoUrl)"
+                    >
+                      <i class="bi bi-image"></i>
+                    </button>
+
+                    <!-- Asignar veterinaria (solo si está pendiente) -->
+                    <div v-if="reporte.estado === 'Pendiente'" class="d-flex">
+                      <select class="form-select form-select-sm me-2" v-model="reporte._idVetSeleccionada">
+                        <option value="">Seleccionar vet</option>
+                        <option v-for="v in veterinarias" :key="v.idVeterinaria" :value="v.idVeterinaria">
+                          {{ v.nombreClinica || (v.usuario && v.usuario.nombre) || ('Vet ' + v.idVeterinaria) }}
+                        </option>
+                      </select>
+                      <button class="btn btn-sm btn-primary" @click="asignarVeterinaria(reporte, reporte._idVetSeleccionada)">Asignar</button>
+                    </div>
+
+                    <div v-else class="text-muted small">--</div>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -53,7 +68,8 @@ import { useAuthStore } from '../../stores/auth';
 import Loading from '../../components/common/Loading.vue';
 import reporteService from '../../services/reporteService';
 import organizacionService from '../../services/organizacionService';
-import { alertaHTML, manejarErrorAPI } from '../../utils/alertas';
+import veterinariaService from '../../services/veterinariaService';
+import { alertaHTML, manejarErrorAPI, alertaExito } from '../../utils/alertas';
 import { colorPorEstado, formatearEstado, formatearFecha, nombreCompleto } from '../../utils/helpers';
 
 export default {
@@ -61,18 +77,36 @@ export default {
   components: { Loading },
   setup() {
     const authStore = useAuthStore();
-    const cargando = ref(true);
-    const reportes = ref([]);
+  const cargando = ref(true);
+  const reportes = ref([]);
+  const veterinarias = ref([]);
     
     const cargarReportes = async () => {
       try {
         const org = await organizacionService.getByUsuario(authStore.usuarioActual.idUsuario);
         const response = await reporteService.getByOrganizacion(org.data.idOrganizacion);
         reportes.value = response.data;
+
+        // Cargar veterinarias para asignar
+        const vets = await veterinariaService.getAll();
+        veterinarias.value = vets.data || [];
       } catch (error) {
         manejarErrorAPI(error);
       } finally {
         cargando.value = false;
+      }
+    };
+
+    const asignarVeterinaria = async (reporte, idVeterinaria) => {
+      if (!idVeterinaria) return alertaHTML('Seleccione una veterinaria antes de asignar.', 'Error');
+      try {
+        // En el backend la relación es ManyToOne -> veterinaria, enviamos el objeto esperado
+        await reporteService.update(reporte.idReporte, { veterinaria: { idVeterinaria: idVeterinaria } });
+        alertaExito('Reporte asignado a la veterinaria. Quedará en estado Pendiente hasta que la veterinaria lo acepte.');
+        // recargar
+        await cargarReportes();
+      } catch (error) {
+        manejarErrorAPI(error);
       }
     };
     
@@ -83,7 +117,7 @@ export default {
     onMounted(() => cargarReportes());
     
     return {
-      cargando, reportes, verFoto,
+      cargando, reportes, verFoto, veterinarias, asignarVeterinaria,
       colorPorEstado, formatearEstado, formatearFecha, nombreCompleto
     };
   }

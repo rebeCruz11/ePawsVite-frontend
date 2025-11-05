@@ -97,7 +97,7 @@
                     <option value="">Seleccione...</option>
                     <option value="Macho">Macho</option>
                     <option value="Hembra">Hembra</option>
-                    <option value="No_especificado">No especificado</option>
+                    <option value="No especificado">No especificado</option>
                   </select>
                 </div>
               </div>
@@ -123,7 +123,7 @@
                   <option value="Disponible">Disponible</option>
                   <option value="Pendiente">Pendiente</option>
                   <option value="Adoptado">Adoptado</option>
-                  <option value="No_disponible">No disponible</option>
+                  <option value="No disponible">No disponible</option>
                 </select>
               </div>
               
@@ -178,8 +178,10 @@ import { Modal } from 'bootstrap';
 import { useAuthStore } from '../../stores/auth';
 import Loading from '../../components/common/Loading.vue';
 import animalService from '../../services/animalService';
+import imagenAnimalService from '../../services/imagenAnimalService';
 import organizacionService from '../../services/organizacionService';
-import { toast, confirmarEliminar, manejarErrorAPI } from '../../utils/alertas';
+import { toast, confirmarEliminar, alertaError, manejarErrorAPI } from '../../utils/alertas';
+import { validarAnimal } from '../../utils/validaciones';
 import { iconoPorEspecie, colorPorEstado, formatearEstado, truncar, obtenerFotoAnimal } from '../../utils/helpers';
 
 export default {
@@ -208,8 +210,9 @@ export default {
         }
         
         miOrganizacion.value = orgResponse.data;
-        const response = await animalService.getByOrganizacion(miOrganizacion.value.idOrganizacion);
-        animales.value = response.data;
+  const response = await animalService.getByOrganizacion(miOrganizacion.value.idOrganizacion);
+  // Filtrar animales que ya fueron adoptados para que no aparezcan en la lista
+  animales.value = (response.data || []).filter(a => a.estado !== 'Adoptado');
       } catch (error) {
         console.error('Error al cargar animales:', error);
         animales.value = [];
@@ -245,18 +248,43 @@ export default {
     };
     
     const guardarAnimal = async () => {
+      // Validar campos obligatorios con SweetAlert
+      const datosVal = {
+        ...form.value,
+        organizacion: { idOrganizacion: miOrganizacion.value.idOrganizacion }
+      };
+
+      const errores = validarAnimal(datosVal);
+      if (Object.keys(errores).length > 0) {
+        const mensajes = Object.values(errores).join('\n');
+        await alertaError(mensajes, 'Errores en el formulario');
+        return;
+      }
+
       guardando.value = true;
       try {
-        const datos = {
-          ...form.value,
-          organizacion: { idOrganizacion: miOrganizacion.value.idOrganizacion }
-        };
-        
         if (modoEdicion.value) {
-          await animalService.update(form.value.idAnimal, datos);
+          await animalService.update(form.value.idAnimal, datosVal);
+          // Si se proporcionó una foto URL, intentar crearla en el servicio de imágenes
+          if (form.value.fotoUrl) {
+            try {
+              await imagenAnimalService.create({ idAnimal: form.value.idAnimal, url: form.value.fotoUrl });
+            } catch (e) {
+              console.warn('No se pudo crear imagen al actualizar animal:', e);
+            }
+          }
           toast('Animal actualizado', 'success');
         } else {
-          await animalService.create(datos);
+          const res = await animalService.create(datosVal);
+          // si backend retorna el animal creado con id
+          const nuevoId = res?.data?.idAnimal || res?.data?.id || null;
+          if (nuevoId && form.value.fotoUrl) {
+            try {
+              await imagenAnimalService.create({ idAnimal: nuevoId, url: form.value.fotoUrl });
+            } catch (e) {
+              console.warn('No se pudo crear imagen para el nuevo animal:', e);
+            }
+          }
           toast('Animal creado', 'success');
         }
         modal.hide();

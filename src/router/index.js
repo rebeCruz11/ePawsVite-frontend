@@ -97,6 +97,12 @@ const routes = [
         name: 'OrganizacionPerfil',
         component: () => import('../views/organizacion/Perfil.vue')
       }
+      ,
+      {
+        path: 'perfil/editar',
+        name: 'OrganizacionEditarPerfil',
+        component: () => import('../views/usuario/EditarPerfil.vue')
+      }
     ]
   },
 
@@ -125,6 +131,12 @@ const routes = [
         path: 'perfil',
         name: 'VeterinariaPerfil',
         component: () => import('../views/veterinaria/Perfil.vue')
+      }
+      ,
+      {
+        path: 'perfil/editar',
+        name: 'VeterinariaEditarPerfil',
+        component: () => import('../views/usuario/EditarPerfil.vue')
       }
     ]
   },
@@ -160,7 +172,21 @@ const routes = [
         name: 'ClienteMisReportes',
         component: () => import('../views/cliente/MisReportes.vue')
       }
+      ,
+      {
+        path: 'perfil',
+        name: 'ClientePerfilEditar',
+        component: () => import('../views/usuario/EditarPerfil.vue')
+      }
     ]
+  },
+  
+  // Añadir ruta de perfil para Admin
+  {
+    path: '/admin/perfil',
+    name: 'AdminPerfilEditar',
+    component: () => import('../views/usuario/EditarPerfil.vue'),
+    meta: { requiresAuth: true, rol: 4 }
   },
 
   // Ruta 404

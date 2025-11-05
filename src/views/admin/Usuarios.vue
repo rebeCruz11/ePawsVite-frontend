@@ -259,7 +259,7 @@ import { Modal } from 'bootstrap';
 import Loading from '../../components/common/Loading.vue';
 import Pagination from '../../components/common/Pagination.vue';
 import usuarioService from '../../services/usuarioService';
-import { alertaExito, confirmarEliminar, manejarErrorAPI, toast } from '../../utils/alertas';
+import { alertaExito, confirmarEliminar, manejarErrorAPI, toast, alertaError } from '../../utils/alertas';
 import { validarUsuario } from '../../utils/validaciones';
 import { nombreRol, truncar, obtenerIniciales, filtrarPorBusqueda, paginar, calcularTotalPaginas } from '../../utils/helpers';
 
@@ -366,8 +366,14 @@ export default {
         rol: { idRol: form.value.idRol }
       };
       errores.value = validarUsuario(usuario);
-      
+      // Si estamos en edición, permitir contraseña vacía (no cambiar)
+      if (modoEdicion.value && errores.value.contrasena) {
+        delete errores.value.contrasena;
+      }
+
       if (Object.keys(errores.value).length > 0) {
+        const mensajes = Object.values(errores.value).join('\n');
+        await alertaError(mensajes, 'Errores en el formulario');
         return;
       }
       

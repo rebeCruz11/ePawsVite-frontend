@@ -42,14 +42,8 @@
                   </span>
                 </td>
                 <td>
-                  <button 
-                    v-if="reporte.fotoUrl" 
-                    class="btn btn-sm btn-info"
-                    @click="verFoto(reporte.fotoUrl)"
-                  >
-                    <i class="bi bi-image"></i>
-                  </button>
-                  <span v-else class="text-muted">Sin foto</span>
+                    <button class="btn btn-sm btn-warning me-1" @click="abrirModalEditar(reporte)">Editar</button>
+                    <button class="btn btn-sm btn-primary" @click="verFoto(reporte.fotoUrl)">Ver</button>
                 </td>
               </tr>
               <tr v-if="reportes.length === 0">
@@ -64,14 +58,71 @@
       </div>
     </div>
   </div>
+
+  <!-- Modal editar reporte -->
+  <div class="modal fade" id="editarReporteModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar Reporte</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <form @submit.prevent="guardarEdicion">
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">Título *</label>
+              <input type="text" class="form-control" v-model="editForm.titulo" :class="{'is-invalid': editErrores.titulo}" required>
+              <div class="invalid-feedback">{{ editErrores.titulo }}</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Descripción *</label>
+              <textarea class="form-control" v-model="editForm.descripcion" :class="{'is-invalid': editErrores.descripcion}" rows="4" required></textarea>
+              <div class="invalid-feedback">{{ editErrores.descripcion }}</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Ubicación</label>
+              <input class="form-control" v-model="editForm.ubicacion">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">URL de Foto</label>
+              <input class="form-control" v-model="editForm.fotoUrl" :class="{'is-invalid': editErrores.fotoUrl}">
+              <div class="invalid-feedback">{{ editErrores.fotoUrl }}</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Asignado a Organización</label>
+              <select class="form-select" v-model="editForm.idOrganizacion">
+                <option value="">Seleccione...</option>
+                <option v-for="o in organizaciones" :key="o.idOrganizacion" :value="o.idOrganizacion">{{ o.nombreOrganizacion }}</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Asignado a Veterinaria</label>
+              <select class="form-select" v-model="editForm.idVeterinaria">
+                <option value="">Seleccione...</option>
+                <option v-for="v in veterinarias" :key="v.idVeterinaria" :value="v.idVeterinaria">{{ v.nombreClinica }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Guardar cambios</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
 import { ref, onMounted } from 'vue';
+import { Modal } from 'bootstrap';
 import { useAuthStore } from '../../stores/auth';
 import Loading from '../../components/common/Loading.vue';
 import reporteService from '../../services/reporteService';
-import { alertaHTML, manejarErrorAPI } from '../../utils/alertas';
+import organizacionService from '../../services/organizacionService';
+import veterinariaService from '../../services/veterinariaService';
+import { alertaHTML, alertaError, manejarErrorAPI, toast } from '../../utils/alertas';
+import { validarReporte } from '../../utils/validaciones';
 import { colorPorEstado, formatearEstado, formatearFechaHora } from '../../utils/helpers';
 
 export default {
@@ -81,6 +132,12 @@ export default {
     const authStore = useAuthStore();
     const cargando = ref(true);
     const reportes = ref([]);
+    const organizaciones = ref([]);
+    const veterinarias = ref([]);
+
+    const editForm = ref({});
+    const editErrores = ref({});
+    let modal = null;
     
     const cargarReportes = async () => {
       try {
@@ -96,11 +153,86 @@ export default {
     const verFoto = (url) => {
       alertaHTML(`<img src="${url}" class="img-fluid" alt="Foto del reporte">`, 'Foto del Reporte');
     };
+
+    const abrirModalEditar = (reporte) => {
+      editForm.value = {
+        idReporte: reporte.idReporte,
+        titulo: reporte.titulo,
+        descripcion: reporte.descripcion,
+        ubicacion: reporte.ubicacion || '',
+        fotoUrl: reporte.fotoUrl || '',
+        idOrganizacion: reporte.organizacion?.idOrganizacion || '',
+        idVeterinaria: reporte.veterinaria?.idVeterinaria || ''
+      };
+      editErrores.value = {};
+      modal.show();
+    };
+
+    const guardarEdicion = async () => {
+      const reporteObj = {
+        ...editForm.value,
+        usuario: { idUsuario: authStore.usuarioActual.idUsuario }
+      };
+
+      const erroresVal = validarReporte(reporteObj);
+      if (Object.keys(erroresVal).length > 0) {
+        const mensajes = Object.values(erroresVal).join('\n');
+        await alertaError(mensajes, 'Errores en el formulario');
+        editErrores.value = erroresVal;
+        return;
+      }
+
+      try {
+        const datos = {
+          titulo: editForm.value.titulo,
+          descripcion: editForm.value.descripcion,
+          ubicacion: editForm.value.ubicacion || null,
+          fotoUrl: editForm.value.fotoUrl || null,
+          estado: 'Pendiente'
+        };
+
+        if (editForm.value.idOrganizacion) {
+          datos.organizacion = { idOrganizacion: parseInt(editForm.value.idOrganizacion) };
+        } else {
+          datos.organizacion = null;
+        }
+
+        if (editForm.value.idVeterinaria) {
+          datos.veterinaria = { idVeterinaria: parseInt(editForm.value.idVeterinaria) };
+        } else {
+          datos.veterinaria = null;
+        }
+
+        await reporteService.update(editForm.value.idReporte, datos);
+        toast('Reporte actualizado', 'success');
+        modal.hide();
+        await cargarReportes();
+      } catch (error) {
+        manejarErrorAPI(error);
+      }
+    };
     
-    onMounted(() => cargarReportes());
+    onMounted(async () => {
+      await cargarReportes();
+      // cargar organizaciones y veterinarias para selects
+      try {
+        const [orgs, vets] = await Promise.all([
+          organizacionService.getAll(),
+          veterinariaService.getAll()
+        ]);
+        organizaciones.value = orgs.data;
+        veterinarias.value = vets.data;
+      } catch (e) {
+        // no bloquear si falla
+      }
+
+      modal = new Modal(document.getElementById('editarReporteModal'));
+    });
     
     return {
       cargando, reportes, verFoto,
+      organizaciones, veterinarias,
+      abrirModalEditar, editForm, editar: null, editErrores, guardarEdicion,
       colorPorEstado, formatearEstado, formatearFechaHora
     };
   }

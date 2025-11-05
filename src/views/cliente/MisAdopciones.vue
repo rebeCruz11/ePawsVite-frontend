@@ -120,6 +120,8 @@ export default {
           await adopcionService.update(adopcion.idAdopcion, { ...adopcion, estado: 'Cancelada' });
           toast('Solicitud cancelada', 'success');
           await cargarAdopciones();
+          // Notificar a otras vistas (por ejemplo: listado de animales) que las adopciones cambiaron
+          window.dispatchEvent(new CustomEvent('adopcionChanged'));
         } catch (error) {
           manejarErrorAPI(error);
         }

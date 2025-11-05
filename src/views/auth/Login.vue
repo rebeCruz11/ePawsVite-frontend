@@ -152,16 +152,24 @@ export default {
         
         if (result.success) {
           await alertaExito('¡Bienvenido de nuevo!', 'Inicio de sesión exitoso');
-          
-          // Redirigir según el rol
+
+          // Redirigir según el rol — leer de forma defensiva para evitar errores si la estructura viene distinta
           const redirectMap = {
             4: '/admin',
             2: '/organizacion',
             3: '/veterinaria',
             1: '/cliente'
           };
-          
-          router.push(redirectMap[result.user.rol.idRol] || '/');
+
+          // Obtener el id del rol con varias alternativas para ser compatible con distintas respuestas
+          const roleId = authStore.rolUsuario || result.user?.rol?.idRol || result.user?.rol?.id || result.user?.idRol || null;
+
+          if (!roleId) {
+            // Si no hay rol claro, ir al home y mostrar advertencia
+            router.push('/');
+          } else {
+            router.push(redirectMap[roleId] || '/');
+          }
         } else {
           alertaError('Credenciales incorrectas. Por favor, verifica tu correo y contraseña.');
         }

@@ -115,7 +115,7 @@ import { useAuthStore } from '../../stores/auth';
 import reporteService from '../../services/reporteService';
 import organizacionService from '../../services/organizacionService';
 import veterinariaService from '../../services/veterinariaService';
-import { alertaExito, manejarErrorAPI } from '../../utils/alertas';
+import { alertaExito, alertaError, manejarErrorAPI } from '../../utils/alertas';
 import { validarReporte } from '../../utils/validaciones';
 
 export default {
@@ -158,8 +158,13 @@ export default {
         usuario: { idUsuario: authStore.usuarioActual.idUsuario }
       };
       errores.value = validarReporte(reporte);
-      
-      if (Object.keys(errores.value).length > 0) return;
+
+      if (Object.keys(errores.value).length > 0) {
+        // Mostrar errores con SweetAlert
+        const mensajes = Object.values(errores.value).join('\n');
+        await alertaError(mensajes, 'Errores en el formulario');
+        return;
+      }
       
       enviando.value = true;
       

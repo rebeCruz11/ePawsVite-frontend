@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import usuarioService from '../services/usuarioService';
-import { encriptarContrasena, desencriptarContrasena } from '../utils/encriptacion';
+import { encriptarContrasena, desencriptarContrasena, hashContrasena } from '../utils/encriptacion';
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -13,11 +13,29 @@ export const useAuthStore = defineStore('auth', {
     // Verificar si el usuario está autenticado
     estaAutenticado: (state) => state.isAuthenticated,
 
-    // Obtener usuario actual
-    usuarioActual: (state) => state.user,
+    // Obtener usuario actual (normalizamos campos comunes para evitar null/keys distintos)
+    usuarioActual: (state) => {
+      if (!state.user) return null;
+      // Normalizar id de usuario y rol para compatibilidad con distintas respuestas del backend
+      const idUsuario = state.user.idUsuario || state.user.id || state.user.id_user || null;
+      const rol = state.user.rol || null;
+      const rolId = rol?.idRol || rol?.id || state.user.idRol || null;
+      return {
+        ...state.user,
+        idUsuario,
+        rol: {
+          ...rol,
+          idRol: rolId
+        }
+      };
+    },
 
-    // Obtener rol del usuario
-    rolUsuario: (state) => state.user?.rol?.idRol || null,
+    // Obtener rol del usuario (normalized)
+    rolUsuario: (state) => {
+      const u = state.user;
+      if (!u) return null;
+      return u.rol?.idRol || u.rol?.id || u.idRol || null;
+    },
 
     // Verificar si es administrador
     esAdmin: (state) => state.user?.rol?.idRol === 4,
@@ -77,7 +95,8 @@ export const useAuthStore = defineStore('auth', {
         // Encriptar contraseña
         const usuarioConContrasenaEncriptada = {
           ...datosUsuario,
-          contrasena: datosUsuario.contrasena // En producción, encriptar aquí
+          // Guardamos el hash de la contraseña para comparación segura
+          contrasena: hashContrasena(datosUsuario.contrasena)
         };
 
         const response = await usuarioService.create(usuarioConContrasenaEncriptada);

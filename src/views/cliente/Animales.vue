@@ -85,11 +85,16 @@
             </div>
             <div class="card-footer bg-transparent">
               <button 
+                v-if="!hasRequested(animal)"
                 class="btn btn-primary w-100"
                 @click="solicitarAdopcion(animal)"
               >
                 <i class="bi bi-heart me-2"></i>
                 Solicitar Adopción
+              </button>
+              <button v-else class="btn btn-outline-secondary w-100" disabled>
+                <i class="bi bi-clock-history me-2"></i>
+                Pendiente
               </button>
             </div>
           </div>
@@ -115,13 +120,13 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useAuthStore } from '../../stores/auth';
 import Loading from '../../components/common/Loading.vue';
 import Pagination from '../../components/common/Pagination.vue';
 import animalService from '../../services/animalService';
 import adopcionService from '../../services/adopcionService';
-import { alertaExito, confirmar, manejarErrorAPI } from '../../utils/alertas';
+import { alertaExito, confirmar, toast, manejarErrorAPI } from '../../utils/alertas';
 import { iconoPorEspecie, truncar, filtrarPorBusqueda, paginar, calcularTotalPaginas, obtenerFotoAnimal } from '../../utils/helpers';
 
 export default {
@@ -136,6 +141,8 @@ export default {
     const filtroSexo = ref('');
     const paginaActual = ref(1);
     const itemsPorPagina = 9;
+  // Set con los ids de animales que el usuario ya solicitó (estado distinto a 'Cancelada')
+  const requestedAnimalIds = ref(new Set());
     
     const animalesFiltrados = computed(() => {
       let resultado = animales.value;
@@ -165,8 +172,22 @@ export default {
     
     const cargarAnimales = async () => {
       try {
-        const response = await animalService.getDisponibles();
-        animales.value = response.data;
+        // Cargamos animales disponibles y las adopciones del usuario para marcar solicitudes existentes
+        const [animalesResp, adopcionesResp] = await Promise.all([
+          animalService.getDisponibles(),
+          adopcionService.getByUsuario(authStore.usuarioActual.idUsuario)
+        ]);
+
+        animales.value = animalesResp.data;
+
+        // Construir set de ids de animales con solicitud activa (no cancelada)
+        const requested = new Set();
+        (adopcionesResp.data || []).forEach(a => {
+          if (a && a.animal && a.animal.idAnimal && a.estado !== 'Cancelada') {
+            requested.add(a.animal.idAnimal);
+          }
+        });
+        requestedAnimalIds.value = requested;
       } catch (error) {
         manejarErrorAPI(error);
       } finally {
@@ -175,6 +196,11 @@ export default {
     };
     
     const solicitarAdopcion = async (animal) => {
+      // Validación: si ya solicitó este animal y no canceló, no permitir nueva solicitud
+      if (requestedAnimalIds.value.has(animal.idAnimal)) {
+        toast('Ya has solicitado la adopción de este animal. Cancela la solicitud antes de volver a solicitar.', 'warning');
+        return;
+      }
       const result = await confirmar(
         `¿Deseas solicitar la adopción de ${animal.nombre}?`,
         'Solicitar Adopción'
@@ -191,6 +217,10 @@ export default {
           
           await adopcionService.create(adopcion);
           await alertaExito('Tu solicitud ha sido enviada exitosamente', '¡Solicitud enviada!');
+          // Marcar localmente que este animal ya tiene una solicitud activa
+          requestedAnimalIds.value.add(animal.idAnimal);
+          // Notificar a otras vistas que las adopciones cambiaron
+          window.dispatchEvent(new CustomEvent('adopcionChanged'));
         } catch (error) {
           manejarErrorAPI(error);
         }
@@ -207,12 +237,21 @@ export default {
     const cambiarPagina = (pagina) => { paginaActual.value = pagina; };
     
     onMounted(() => cargarAnimales());
+    // Escuchar cambios de adopciones (por ejemplo: cuando el usuario cancela una solicitud en MisAdopciones)
+    const onAdopcionChanged = () => cargarAnimales();
+    window.addEventListener('adopcionChanged', onAdopcionChanged);
+    onBeforeUnmount(() => {
+      window.removeEventListener('adopcionChanged', onAdopcionChanged);
+    });
     
+    const hasRequested = (animal) => requestedAnimalIds.value.has(animal.idAnimal);
+
     return {
       cargando, animalesFiltrados, animalesPaginados, totalPaginas,
       busqueda, filtroEspecie, filtroSexo, paginaActual,
       solicitarAdopcion, filtrarAnimales, limpiarFiltros, cambiarPagina,
-      iconoPorEspecie, truncar, obtenerFotoAnimal
+      iconoPorEspecie, truncar, obtenerFotoAnimal,
+      hasRequested
     };
   }
 }

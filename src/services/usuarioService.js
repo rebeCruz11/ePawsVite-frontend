@@ -1,4 +1,5 @@
 import api from './api';
+import { hashContrasena } from '../utils/encriptacion';
 
 export default {
   // Obtener todos los usuarios
@@ -44,7 +45,7 @@ export default {
       const usuario = response.data;
       
       // Validamos la contraseña (en producción esto debe hacerse en el backend)
-      if (usuario && usuario.contrasena === contrasena) {
+      if (usuario && usuario.contrasena === hashContrasena(contrasena)) {
         return { data: usuario, success: true };
       } else {
         throw new Error('Credenciales inválidas');
