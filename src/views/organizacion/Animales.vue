@@ -358,6 +358,34 @@ export default {
           return;
         }
 
+        // Validación de edad - NUEVA
+        const edadNumero = parseInt(form.value.edad, 10);
+        if (isNaN(edadNumero) || edadNumero < 0) {
+          alertaError('La edad debe ser un número válido mayor o igual a 0');
+          guardando.value = false;
+          return;
+        }
+        
+        // Validar límites según unidad
+        if (form.value.unidadEdad === 'Años' && edadNumero > 50) {
+          alertaError('La edad no puede ser mayor a 50 años');
+          guardando.value = false;
+          return;
+        }
+        
+        if (form.value.unidadEdad === 'Meses' && edadNumero > 600) {
+          alertaError('La edad no puede ser mayor a 600 meses (50 años)');
+          guardando.value = false;
+          return;
+        }
+        
+        // Validar que si es 0, tenga sentido
+        if (edadNumero === 0) {
+          alertaError('La edad debe ser mayor a 0. Use la unidad apropiada (Meses para animales jóvenes)');
+          guardando.value = false;
+          return;
+        }
+
         console.log('Iniciando guardado de animal...');
         console.log('Archivos nuevos:', archivosNuevos.value.length);
         console.log('Imágenes existentes:', imagenesExistentes.value.length);

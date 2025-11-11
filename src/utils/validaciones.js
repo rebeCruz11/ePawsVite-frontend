@@ -8,8 +8,38 @@ export const validarEmail = (email) => {
 export const validarTelefono = (telefono) => {
   // Acepta números, guiones y espacios (máximo 30 caracteres)
   if (!telefono) return false;
-  const regex = /^[0-9\-\s]{8,30}$/;
-  return regex.test(telefono);
+  
+  // Eliminar espacios y guiones para contar solo números
+  const soloNumeros = telefono.replace(/[\s\-]/g, '');
+  
+  // Debe tener al menos 8 dígitos reales
+  if (soloNumeros.length < 8) {
+    return false;
+  }
+  
+  // No puede tener más de 15 dígitos (estándar internacional)
+  if (soloNumeros.length > 15) {
+    return false;
+  }
+  
+  // Verificar que los números no sean todos iguales (ej: 00000000, 11111111)
+  const todosIguales = /^(\d)\1+$/.test(soloNumeros);
+  if (todosIguales) {
+    return false;
+  }
+  
+  // Solo debe contener dígitos, espacios y guiones
+  const regex = /^[0-9\-\s]+$/;
+  if (!regex.test(telefono)) {
+    return false;
+  }
+  
+  // Verificar que tenga al menos algunos números (no solo guiones/espacios)
+  if (!/\d/.test(telefono)) {
+    return false;
+  }
+  
+  return true;
 };
 
 export const validarContrasena = (contrasena) => {
@@ -32,8 +62,85 @@ export const validarURL = (url) => {
   }
 };
 
+// Validar edad de animal
+export const validarEdadAnimal = (edad, unidadEdad) => {
+  const edadNum = parseInt(edad, 10);
+  
+  if (isNaN(edadNum) || edadNum < 0) {
+    return { valido: false, mensaje: 'La edad debe ser un número válido mayor o igual a 0' };
+  }
+  
+  if (edadNum === 0) {
+    return { valido: false, mensaje: 'La edad debe ser mayor a 0' };
+  }
+  
+  if (unidadEdad === 'Años') {
+    if (edadNum > 50) {
+      return { valido: false, mensaje: 'La edad no puede ser mayor a 50 años' };
+    }
+  }
+  
+  if (unidadEdad === 'Meses') {
+    if (edadNum > 600) {
+      return { valido: false, mensaje: 'La edad no puede ser mayor a 600 meses (50 años)' };
+    }
+  }
+  
+  return { valido: true };
+};
+
 export const validarEdad = (edad) => {
   return edad > 0 && edad < 100;
+};
+
+// Validar fecha
+export const validarFecha = (fecha, opciones = {}) => {
+  const {
+    permitirFutura = false,
+    anosAtrasMaximo = 10,
+    permitirHoy = true
+  } = opciones;
+
+  if (!fecha) return false;
+
+  try {
+    const fechaObj = new Date(fecha);
+    const hoy = new Date();
+    
+    // Resetear horas para comparar solo fechas
+    hoy.setHours(0, 0, 0, 0);
+    fechaObj.setHours(0, 0, 0, 0);
+    
+    // Validar que sea una fecha válida
+    if (isNaN(fechaObj.getTime())) {
+      return false;
+    }
+    
+    // Validar fecha futura
+    if (!permitirFutura && fechaObj > hoy) {
+      return false;
+    }
+    
+    // Validar fecha de hoy
+    if (!permitirHoy && fechaObj.getTime() === hoy.getTime()) {
+      return false;
+    }
+    
+    // Validar antigüedad máxima
+    if (anosAtrasMaximo > 0) {
+      const fechaMinima = new Date();
+      fechaMinima.setFullYear(fechaMinima.getFullYear() - anosAtrasMaximo);
+      fechaMinima.setHours(0, 0, 0, 0);
+      
+      if (fechaObj < fechaMinima) {
+        return false;
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    return false;
+  }
 };
 
 // Validar formulario de usuario
@@ -57,7 +164,7 @@ export const validarUsuario = (usuario) => {
   }
 
   if (usuario.telefono && !validarTelefono(usuario.telefono)) {
-    errores.telefono = 'El teléfono debe contener entre 8-30 caracteres (números, guiones o espacios)';
+    errores.telefono = 'El teléfono debe contener entre 8-15 dígitos válidos';
   }
 
   if (usuario.direccion && usuario.direccion.length > 150) {
@@ -127,7 +234,7 @@ export const validarOrganizacion = (organizacion) => {
   }
 
   if (!organizacion.telefono || !validarTelefono(organizacion.telefono)) {
-    errores.telefono = 'El teléfono debe tener el formato XXXX-XXXX';
+    errores.telefono = 'El teléfono debe contener entre 8-15 dígitos válidos';
   }
 
   if (!organizacion.usuario || !organizacion.usuario.idUsuario) {
@@ -154,7 +261,7 @@ export const validarVeterinaria = (veterinaria) => {
   }
 
   if (!veterinaria.telefono || !validarTelefono(veterinaria.telefono)) {
-    errores.telefono = 'El teléfono debe tener el formato XXXX-XXXX';
+    errores.telefono = 'El teléfono debe contener entre 8-15 dígitos válidos';
   }
 
   if (!veterinaria.usuario || !veterinaria.usuario.idUsuario) {

@@ -36,7 +36,10 @@
 								type="date" 
 								class="form-control" 
 								v-model="filtros.fechaDesde"
+								:max="fechaMaxima"
+								:min="fechaMinima"
 							/>
+							<small class="text-muted">Máximo hoy, mínimo 10 años atrás</small>
 						</div>
 						<div class="col-md-2 d-flex align-items-end">
 							<button class="btn btn-secondary w-100" @click="limpiarFiltros">
@@ -237,6 +240,20 @@ export default{
 			tipoAtencion: '',
 			fechaDesde: ''
 		});
+		
+		// Calcular fechas límite para el filtro
+		const fechaMaxima = computed(() => {
+			// Máximo: hoy
+			const hoy = new Date();
+			return hoy.toISOString().split('T')[0];
+		});
+		
+		const fechaMinima = computed(() => {
+			// Mínimo: hace 10 años
+			const hace10Anos = new Date();
+			hace10Anos.setFullYear(hace10Anos.getFullYear() - 10);
+			return hace10Anos.toISOString().split('T')[0];
+		});
 
 		const registrosFiltrados = computed(() => {
 			let resultado = [...registros.value];
@@ -256,11 +273,37 @@ export default{
 			
 			// Filtrar por fecha
 			if (filtros.value.fechaDesde) {
-				resultado = resultado.filter(r => {
-					const fechaRegistro = new Date(r.fechaAtencion);
+				try {
 					const fechaFiltro = new Date(filtros.value.fechaDesde);
-					return fechaRegistro >= fechaFiltro;
-				});
+					const fechaActual = new Date();
+					
+					// Validar que la fecha de filtro no sea futura
+					if (fechaFiltro > fechaActual) {
+						// Si es fecha futura, limpiar el filtro
+						filtros.value.fechaDesde = '';
+						return resultado;
+					}
+					
+					// Validar que la fecha no sea muy antigua (más de 10 años)
+					const hace10Anos = new Date();
+					hace10Anos.setFullYear(hace10Anos.getFullYear() - 10);
+					
+					if (fechaFiltro < hace10Anos) {
+						// Usar la fecha de hace 10 años como mínimo
+						resultado = resultado.filter(r => {
+							const fechaRegistro = new Date(r.fechaAtencion);
+							return fechaRegistro >= hace10Anos;
+						});
+					} else {
+						resultado = resultado.filter(r => {
+							const fechaRegistro = new Date(r.fechaAtencion);
+							return fechaRegistro >= fechaFiltro;
+						});
+					}
+				} catch (error) {
+					// Si hay error al parsear la fecha, ignorar el filtro
+					console.error('Error al procesar fecha:', error);
+				}
 			}
 			
 			return resultado;
@@ -303,7 +346,19 @@ export default{
 		};
 
 		const crearRegistro = async () => {
-			if (!form.value.idAnimal) return alertaError('Seleccione un animal');
+			// Validaciones
+			if (!form.value.idAnimal) {
+				return alertaError('Seleccione un animal');
+			}
+			
+			if (!form.value.diagnostico || form.value.diagnostico.trim().length < 10) {
+				return alertaError('El diagnóstico debe tener al menos 10 caracteres');
+			}
+			
+			if (!form.value.tratamiento || form.value.tratamiento.trim().length < 10) {
+				return alertaError('El tratamiento debe tener al menos 10 caracteres');
+			}
+			
 			try {
 				await registroMedicoService.create({
 					id_animal: form.value.idAnimal,
@@ -371,6 +426,8 @@ export default{
 			form,
 			animales,
 			filtros,
+			fechaMaxima,
+			fechaMinima,
 			crearRegistro,
 			verDetalle,
 			limpiarFiltros,

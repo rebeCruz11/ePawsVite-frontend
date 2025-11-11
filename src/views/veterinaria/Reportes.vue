@@ -485,9 +485,21 @@ async function guardarRegistroMedico() {
       return;
     }
     
+    if (registroMedico.value.diagnostico.trim().length < 10) {
+      console.warn('⚠️ Diagnóstico muy corto');
+      alertaError('El diagnóstico debe tener al menos 10 caracteres');
+      return;
+    }
+    
     if (!registroMedico.value.tratamiento || registroMedico.value.tratamiento.trim() === '') {
       console.warn('⚠️ Falta tratamiento');
       alertaError('Debe ingresar un tratamiento');
+      return;
+    }
+    
+    if (registroMedico.value.tratamiento.trim().length < 10) {
+      console.warn('⚠️ Tratamiento muy corto');
+      alertaError('El tratamiento debe tener al menos 10 caracteres');
       return;
     }
     
