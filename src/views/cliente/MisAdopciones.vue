@@ -9,24 +9,15 @@
         <div class="col-md-6" v-for="adopcion in adopciones" :key="adopcion.idAdopcion">
           <div class="card">
             <div class="row g-0">
-              <!-- Foto del animal -->
+              <!-- Foto del animal con carrusel -->
               <div class="col-md-5">
-                <div 
-                  v-if="obtenerFotoAnimal(adopcion.animal)" 
-                  style="height: 100%; min-height: 250px; position: relative; overflow: hidden;"
-                >
-                  <img 
-                    :src="obtenerFotoAnimal(adopcion.animal)" 
+                <div style="height: 100%; min-height: 250px; overflow: hidden;">
+                  <ImageCarousel 
+                    :imagenes="obtenerImagenesAnimal(adopcion.animal)"
                     :alt="adopcion.animal.nombre"
-                    style="width: 100%; height: 100%; object-fit: cover;"
-                    @error="e => e.target.src = ''"
-                  >
-                </div>
-                <div 
-                  v-else
-                  style="height: 100%; min-height: 250px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center;"
-                >
-                  <i :class="`bi ${iconoPorEspecie(adopcion.animal.especie)} text-white`" style="font-size: 4rem;"></i>
+                    :icono="iconoPorEspecie(adopcion.animal.especie)"
+                    :id="`carousel-adopcion-${adopcion.idAdopcion}`"
+                  />
                 </div>
               </div>
               
@@ -90,13 +81,14 @@
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '../../stores/auth';
 import Loading from '../../components/common/Loading.vue';
+import ImageCarousel from '../../components/common/ImageCarousel.vue';
 import adopcionService from '../../services/adopcionService';
 import { confirmar, toast, manejarErrorAPI } from '../../utils/alertas';
 import { iconoPorEspecie, colorPorEstado, formatearEstado, formatearFecha, obtenerFotoAnimal } from '../../utils/helpers';
 
 export default {
   name: 'ClienteMisAdopciones',
-  components: { Loading },
+  components: { Loading, ImageCarousel },
   setup() {
     const authStore = useAuthStore();
     const cargando = ref(true);
@@ -111,6 +103,13 @@ export default {
       } finally {
         cargando.value = false;
       }
+    };
+
+    const obtenerImagenesAnimal = (animal) => {
+      if (animal.imagenes && animal.imagenes.length > 0) {
+        return animal.imagenes.map(img => img.url).filter(url => url);
+      }
+      return [];
     };
     
     const cancelarAdopcion = async (adopcion) => {
@@ -131,7 +130,7 @@ export default {
     onMounted(() => cargarAdopciones());
     
     return {
-      cargando, adopciones, cancelarAdopcion,
+      cargando, adopciones, cancelarAdopcion, obtenerImagenesAnimal,
       iconoPorEspecie, colorPorEstado, formatearEstado, formatearFecha, obtenerFotoAnimal
     };
   }

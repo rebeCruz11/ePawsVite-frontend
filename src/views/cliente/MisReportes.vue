@@ -16,6 +16,7 @@
                 <th>Estado</th>
                 <th>Asignado a</th>
                 <th>Foto</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -42,12 +43,38 @@
                   </span>
                 </td>
                 <td>
-                    <button class="btn btn-sm btn-warning me-1" @click="abrirModalEditar(reporte)">Editar</button>
-                    <button class="btn btn-sm btn-primary" @click="verFoto(reporte.fotoUrl)">Ver</button>
+                  <span v-if="reporte.fotoUrl" class="d-inline-block">
+                    <img 
+                      :src="reporte.fotoUrl" 
+                      alt="Foto reporte"
+                      style="width: 60px; height: 60px; object-fit: cover; cursor: pointer; border-radius: 8px;"
+                      class="img-thumbnail"
+                      @click="verFoto(reporte.fotoUrl)"
+                    />
+                  </span>
+                  <span v-else class="text-muted">
+                    <i class="bi bi-image"></i> Sin foto
+                  </span>
+                </td>
+                <td>
+                  <button 
+                    class="btn btn-sm btn-warning me-2" 
+                    @click="abrirModalEditar(reporte)"
+                    v-if="reporte.estado === 'Pendiente'"
+                  >
+                    <i class="bi bi-pencil"></i> Editar
+                  </button>
+                  <button 
+                    class="btn btn-sm btn-primary" 
+                    @click="abrirModalReasignar(reporte)"
+                    v-if="reporte.estado === 'Rechazado'"
+                  >
+                    <i class="bi bi-arrow-repeat"></i> Reasignar
+                  </button>
                 </td>
               </tr>
               <tr v-if="reportes.length === 0">
-                <td colspan="6" class="text-center text-muted py-4">
+                <td colspan="7" class="text-center text-muted py-4">
                   <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                   No has creado reportes
                 </td>
@@ -61,7 +88,7 @@
 
   <!-- Modal editar reporte -->
   <div class="modal fade" id="editarReporteModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title">Editar Reporte</h5>
@@ -69,75 +96,312 @@
         </div>
         <form @submit.prevent="guardarEdicion">
           <div class="modal-body">
-            <div class="mb-3">
-              <label class="form-label">Título *</label>
-              <input type="text" class="form-control" v-model="editForm.titulo" :class="{'is-invalid': editErrores.titulo}" required>
-              <div class="invalid-feedback">{{ editErrores.titulo }}</div>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Descripción *</label>
-              <textarea class="form-control" v-model="editForm.descripcion" :class="{'is-invalid': editErrores.descripcion}" rows="4" required></textarea>
-              <div class="invalid-feedback">{{ editErrores.descripcion }}</div>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Ubicación</label>
-              <input class="form-control" v-model="editForm.ubicacion">
-            </div>
-            <div class="mb-3">
-              <label class="form-label">URL de Foto</label>
-              <input class="form-control" v-model="editForm.fotoUrl" :class="{'is-invalid': editErrores.fotoUrl}">
-              <div class="invalid-feedback">{{ editErrores.fotoUrl }}</div>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Asignado a Organización</label>
-              <select class="form-select" v-model="editForm.idOrganizacion">
-                <option value="">Seleccione...</option>
-                <option v-for="o in organizaciones" :key="o.idOrganizacion" :value="o.idOrganizacion">{{ o.nombreOrganizacion }}</option>
-              </select>
-            </div>
-            <div class="mb-3">
-              <label class="form-label">Asignado a Veterinaria</label>
-              <select class="form-select" v-model="editForm.idVeterinaria">
-                <option value="">Seleccione...</option>
-                <option v-for="v in veterinarias" :key="v.idVeterinaria" :value="v.idVeterinaria">{{ v.nombreClinica }}</option>
-              </select>
+            <div class="row">
+              <!-- Columna Izquierda: Imagen -->
+              <div class="col-md-5">
+                <h6 class="mb-3">
+                  <i class="bi bi-camera me-2"></i>
+                  Foto del Reporte
+                </h6>
+                <ImageUploader 
+                  ref="imageUploaderEdit"
+                  :multiple="false"
+                  :max-files="1"
+                  :model-value="editForm.fotoUrl"
+                  placeholder="Arrastra una imagen aquí"
+                  @files-selected="archivosEditSeleccionados"
+                />
+                <small class="text-muted mt-2 d-block">
+                  <i class="bi bi-info-circle me-1"></i>
+                  Puedes cambiar la foto del reporte
+                </small>
+              </div>
+
+              <!-- Columna Derecha: Formulario -->
+              <div class="col-md-7">
+                <div class="mb-3">
+                  <label class="form-label">Título *</label>
+                  <input 
+                    type="text" 
+                    class="form-control" 
+                    v-model="editForm.titulo" 
+                    :class="{'is-invalid': editErrores.titulo}" 
+                    required
+                    maxlength="150"
+                  >
+                  <div class="invalid-feedback">{{ editErrores.titulo }}</div>
+                </div>
+                
+                <div class="mb-3">
+                  <label class="form-label">Descripción *</label>
+                  <textarea 
+                    class="form-control" 
+                    v-model="editForm.descripcion" 
+                    :class="{'is-invalid': editErrores.descripcion}" 
+                    rows="4" 
+                    required
+                    maxlength="5000"
+                  ></textarea>
+                  <div class="invalid-feedback">{{ editErrores.descripcion }}</div>
+                </div>
+                
+                <div class="mb-3">
+                  <label class="form-label">Ubicación</label>
+                  <input 
+                    class="form-control" 
+                    v-model="editForm.ubicacion"
+                    maxlength="200"
+                  >
+                </div>
+                
+                <div class="mb-3">
+                  <label class="form-label">
+                    <i class="bi bi-building me-1"></i>
+                    Organización *
+                  </label>
+                  <div class="input-group">
+                    <input 
+                      type="text" 
+                      class="form-control" 
+                      :value="editOrganizacionSeleccionada?.nombreOrganizacion || 'Ninguna seleccionada'"
+                      readonly
+                    >
+                    <button 
+                      type="button" 
+                      class="btn btn-outline-primary" 
+                      @click="abrirModalOrganizacionEdit"
+                    >
+                      <i class="bi bi-search me-1"></i>
+                      Cambiar
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <button type="submit" class="btn btn-primary">Guardar cambios</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+              <i class="bi bi-x-circle me-2"></i>
+              Cancelar
+            </button>
+            <button type="submit" class="btn btn-primary" :disabled="guardandoEdicion">
+              <span v-if="guardandoEdicion">
+                <span class="spinner-border spinner-border-sm me-2"></span>
+                Guardando...
+              </span>
+              <span v-else>
+                <i class="bi bi-check-circle me-2"></i>
+                Guardar cambios
+              </span>
+            </button>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para seleccionar organización (Edit/Reasignar) -->
+  <div class="modal fade" id="organizacionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">
+            <i class="bi bi-building me-2"></i>
+            Seleccionar Organización
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            Selecciona la organización que atenderá el reporte.
+          </div>
+
+          <!-- Búsqueda -->
+          <div class="mb-3">
+            <label class="form-label fw-bold">
+              <i class="bi bi-search me-2"></i>Buscar Organización
+            </label>
+            <input 
+              type="text" 
+              class="form-control" 
+              v-model="busquedaOrg"
+              placeholder="Buscar por nombre o ubicación..."
+            />
+          </div>
+
+          <!-- Lista de organizaciones -->
+          <div class="list-group" style="max-height: 400px; overflow-y: auto;">
+            <button 
+              type="button"
+              v-for="org in organizacionesFiltradas" 
+              :key="org.idOrganizacion"
+              class="list-group-item list-group-item-action"
+              :class="{ 'active': organizacionTempSeleccionada?.idOrganizacion === org.idOrganizacion }"
+              @click="organizacionTempSeleccionada = org"
+            >
+              <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1">
+                  <i class="bi bi-building me-2"></i>
+                  {{ org.nombreOrganizacion }}
+                </h6>
+                <small v-if="organizacionTempSeleccionada?.idOrganizacion === org.idOrganizacion">
+                  <i class="bi bi-check-circle-fill text-success"></i>
+                </small>
+              </div>
+              <p class="mb-1 small" v-if="org.ubicacion">
+                <i class="bi bi-geo-alt me-1"></i>{{ org.ubicacion }}
+              </p>
+              <small class="text-muted" v-if="org.telefono">
+                <i class="bi bi-telephone me-1"></i>{{ org.telefono }}
+              </small>
+            </button>
+            <div v-if="organizacionesFiltradas.length === 0" class="text-center text-muted py-4">
+              <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+              No se encontraron organizaciones
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            Cancelar
+          </button>
+          <button 
+            type="button" 
+            class="btn btn-primary" 
+            @click="confirmarSeleccionOrganizacion"
+            :disabled="!organizacionTempSeleccionada"
+          >
+            <i class="bi bi-check-circle me-2"></i>
+            Seleccionar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Reasignar Reporte -->
+  <div class="modal fade" id="reasignarReporteModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-warning">
+          <h5 class="modal-title">
+            <i class="bi bi-arrow-repeat me-2"></i>
+            Reasignar Reporte a Nueva Organización
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Tu reporte fue rechazado. Puedes reasignarlo a una organización diferente.
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Reporte:</label>
+            <p class="mb-0">{{ reasignarForm.titulo }}</p>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">
+              <i class="bi bi-building me-1"></i>
+              Nueva Organización *
+            </label>
+            <div class="input-group">
+              <input 
+                type="text" 
+                class="form-control" 
+                :value="reasignarOrganizacionSeleccionada?.nombreOrganizacion || 'Ninguna seleccionada'"
+                readonly
+              >
+              <button 
+                type="button" 
+                class="btn btn-outline-primary" 
+                @click="abrirModalOrganizacionReasignar"
+              >
+                <i class="bi bi-search me-1"></i>
+                Buscar
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            Cancelar
+          </button>
+          <button 
+            type="button" 
+            class="btn btn-primary" 
+            @click="confirmarReasignacion"
+            :disabled="!reasignarOrganizacionSeleccionada || guardandoReasignacion"
+          >
+            <span v-if="guardandoReasignacion">
+              <span class="spinner-border spinner-border-sm me-2"></span>
+              Reasignando...
+            </span>
+            <span v-else>
+              <i class="bi bi-check-circle me-2"></i>
+              Confirmar Reasignación
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { Modal } from 'bootstrap';
 import { useAuthStore } from '../../stores/auth';
 import Loading from '../../components/common/Loading.vue';
+import ImageUploader from '../../components/common/ImageUploader.vue';
 import reporteService from '../../services/reporteService';
 import organizacionService from '../../services/organizacionService';
 import veterinariaService from '../../services/veterinariaService';
+import cloudinaryService from '../../services/cloudinaryService';
 import { alertaHTML, alertaError, manejarErrorAPI, toast } from '../../utils/alertas';
 import { validarReporte } from '../../utils/validaciones';
 import { colorPorEstado, formatearEstado, formatearFechaHora } from '../../utils/helpers';
 
 export default {
   name: 'ClienteMisReportes',
-  components: { Loading },
+  components: { 
+    Loading,
+    ImageUploader
+  },
   setup() {
     const authStore = useAuthStore();
     const cargando = ref(true);
+    const guardandoEdicion = ref(false);
+    const guardandoReasignacion = ref(false);
     const reportes = ref([]);
     const organizaciones = ref([]);
     const veterinarias = ref([]);
+    const imageUploaderEdit = ref(null);
+    const archivoEditNuevo = ref(null);
+    const busquedaOrg = ref('');
+    const organizacionTempSeleccionada = ref(null);
+    const editOrganizacionSeleccionada = ref(null);
+    const reasignarOrganizacionSeleccionada = ref(null);
 
     const editForm = ref({});
     const editErrores = ref({});
+    const reasignarForm = ref({});
     let modal = null;
+    let modalOrganizacion = null;
+    let modalReasignar = null;
+    let modoModal = ref(''); // 'edit' o 'reasignar'
+
+    // Computed para filtrar organizaciones
+    const organizacionesFiltradas = computed(() => {
+      if (!busquedaOrg.value) return organizaciones.value;
+      const busqueda = busquedaOrg.value.toLowerCase();
+      return organizaciones.value.filter(org => 
+        org.nombreOrganizacion.toLowerCase().includes(busqueda) ||
+        (org.ubicacion && org.ubicacion.toLowerCase().includes(busqueda))
+      );
+    });
     
     const cargarReportes = async () => {
       try {
@@ -154,7 +418,12 @@ export default {
       alertaHTML(`<img src="${url}" class="img-fluid" alt="Foto del reporte">`, 'Foto del Reporte');
     };
 
+    const archivosEditSeleccionados = (archivos) => {
+      archivoEditNuevo.value = archivos.length > 0 ? archivos[0] : null;
+    };
+
     const abrirModalEditar = (reporte) => {
+      archivoEditNuevo.value = null;
       editForm.value = {
         idReporte: reporte.idReporte,
         titulo: reporte.titulo,
@@ -164,8 +433,74 @@ export default {
         idOrganizacion: reporte.organizacion?.idOrganizacion || '',
         idVeterinaria: reporte.veterinaria?.idVeterinaria || ''
       };
+      editOrganizacionSeleccionada.value = reporte.organizacion || null;
       editErrores.value = {};
+      
+      // Limpiar el uploader
+      if (imageUploaderEdit.value) {
+        imageUploaderEdit.value.limpiar();
+      }
+      
       modal.show();
+    };
+
+    const abrirModalOrganizacionEdit = () => {
+      modoModal.value = 'edit';
+      busquedaOrg.value = '';
+      organizacionTempSeleccionada.value = editOrganizacionSeleccionada.value;
+      modalOrganizacion.show();
+    };
+
+    const abrirModalOrganizacionReasignar = () => {
+      modoModal.value = 'reasignar';
+      busquedaOrg.value = '';
+      organizacionTempSeleccionada.value = reasignarOrganizacionSeleccionada.value;
+      modalOrganizacion.show();
+    };
+
+    const confirmarSeleccionOrganizacion = () => {
+      if (modoModal.value === 'edit') {
+        editOrganizacionSeleccionada.value = organizacionTempSeleccionada.value;
+        editForm.value.idOrganizacion = organizacionTempSeleccionada.value?.idOrganizacion || '';
+      } else if (modoModal.value === 'reasignar') {
+        reasignarOrganizacionSeleccionada.value = organizacionTempSeleccionada.value;
+      }
+      modalOrganizacion.hide();
+    };
+
+    const abrirModalReasignar = (reporte) => {
+      reasignarForm.value = {
+        idReporte: reporte.idReporte,
+        titulo: reporte.titulo
+      };
+      reasignarOrganizacionSeleccionada.value = null;
+      modalReasignar.show();
+    };
+
+    const confirmarReasignacion = async () => {
+      if (!reasignarOrganizacionSeleccionada.value) {
+        alertaError('Debes seleccionar una organización');
+        return;
+      }
+
+      try {
+        guardandoReasignacion.value = true;
+        
+        const datos = {
+          organizacion: { idOrganizacion: reasignarOrganizacionSeleccionada.value.idOrganizacion },
+          estado: 'Pendiente', // Resetear estado a Pendiente
+          veterinaria: null // Limpiar veterinaria
+        };
+
+        await reporteService.update(reasignarForm.value.idReporte, datos);
+        toast('Reporte reasignado correctamente a ' + reasignarOrganizacionSeleccionada.value.nombreOrganizacion, 'success');
+        modalReasignar.hide();
+        await cargarReportes();
+      } catch (error) {
+        manejarErrorAPI(error);
+      } finally {
+        guardandoReasignacion.value = false;
+      }
     };
 
     const guardarEdicion = async () => {
@@ -183,11 +518,31 @@ export default {
       }
 
       try {
+        guardandoEdicion.value = true;
+        
+        let fotoUrl = editForm.value.fotoUrl; // Mantener la URL existente
+        
+        // Si hay una nueva imagen, subirla a Cloudinary
+        if (archivoEditNuevo.value) {
+          try {
+            console.log('Subiendo nueva imagen a Cloudinary...');
+            fotoUrl = await cloudinaryService.subirImagen(
+              archivoEditNuevo.value, 
+              'epaws/reportes'
+            );
+            console.log('Nueva imagen subida:', fotoUrl);
+          } catch (error) {
+            console.error('Error al subir imagen:', error);
+            alertaError('No se pudo subir la nueva imagen. Se mantendrá la foto anterior.');
+            // Continuar con la foto anterior
+          }
+        }
+
         const datos = {
           titulo: editForm.value.titulo,
           descripcion: editForm.value.descripcion,
           ubicacion: editForm.value.ubicacion || null,
-          fotoUrl: editForm.value.fotoUrl || null,
+          fotoUrl: fotoUrl,
           estado: 'Pendiente'
         };
 
@@ -197,18 +552,17 @@ export default {
           datos.organizacion = null;
         }
 
-        if (editForm.value.idVeterinaria) {
-          datos.veterinaria = { idVeterinaria: parseInt(editForm.value.idVeterinaria) };
-        } else {
-          datos.veterinaria = null;
-        }
+        // No permitir que el usuario asigne veterinaria
+        datos.veterinaria = null;
 
         await reporteService.update(editForm.value.idReporte, datos);
-        toast('Reporte actualizado', 'success');
+        toast('Reporte actualizado correctamente', 'success');
         modal.hide();
         await cargarReportes();
       } catch (error) {
         manejarErrorAPI(error);
+      } finally {
+        guardandoEdicion.value = false;
       }
     };
     
@@ -227,13 +581,38 @@ export default {
       }
 
       modal = new Modal(document.getElementById('editarReporteModal'));
+      modalOrganizacion = new Modal(document.getElementById('organizacionModal'));
+      modalReasignar = new Modal(document.getElementById('reasignarReporteModal'));
     });
     
     return {
-      cargando, reportes, verFoto,
-      organizaciones, veterinarias,
-      abrirModalEditar, editForm, editar: null, editErrores, guardarEdicion,
-      colorPorEstado, formatearEstado, formatearFechaHora
+      cargando, 
+      guardandoEdicion,
+      guardandoReasignacion,
+      reportes, 
+      verFoto,
+      organizaciones,
+      organizacionesFiltradas,
+      veterinarias,
+      busquedaOrg,
+      organizacionTempSeleccionada,
+      editOrganizacionSeleccionada,
+      reasignarOrganizacionSeleccionada,
+      imageUploaderEdit,
+      archivosEditSeleccionados,
+      abrirModalEditar,
+      abrirModalOrganizacionEdit,
+      abrirModalOrganizacionReasignar,
+      confirmarSeleccionOrganizacion,
+      abrirModalReasignar,
+      confirmarReasignacion,
+      reasignarForm,
+      editForm, 
+      editErrores, 
+      guardarEdicion,
+      colorPorEstado, 
+      formatearEstado, 
+      formatearFechaHora
     };
   }
 }

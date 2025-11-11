@@ -67,38 +67,17 @@ export default {
     return response;
   },
 
-  // Métodos directos para nuevas vistas
-  async listar() {
-    const response = await this.getAll();
-    return response.data;
-  },
-
-  async obtenerPorId(id) {
-    const response = await this.getById(id);
-    return response.data;
-  },
-
-  async crear(animal) {
-    const response = await api.post('/animales', animal);
-    return response.data;
-  },
-
-  async actualizar(id, animal) {
-    const response = await api.put(`/animales/${id}`, animal);
-    return response.data;
-  },
-
-  async eliminar(id) {
-    const response = await api.delete(`/animales/${id}`);
-    return response.data;
-  },
-
-  // Crear animal
+  // Crear animal (SIN cargar imágenes, se agregarán después)
   create(animal) {
     return api.post('/animales', animal);
   },
 
-  // Actualizar animal
+  // Crear animal con imágenes en una sola llamada
+  createConImagenes(animalData) {
+    return api.post('/animales/con-imagenes', animalData);
+  },
+
+  // Actualizar animal (SIN cargar imágenes, se manejan por separado)
   update(id, animal) {
     return api.put(`/animales/${id}`, animal);
   },

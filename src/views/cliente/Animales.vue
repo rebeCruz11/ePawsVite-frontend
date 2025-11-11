@@ -74,9 +74,12 @@
               </div>
             </div>
             <div class="card-body">
-              <h5 class="card-title">{{ animal.nombre }}</h5>
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <h5 class="card-title mb-0">{{ animal.nombre }}</h5>
+                <span class="badge bg-success">{{ animal.estado }}</span>
+              </div>
               <p class="text-muted mb-2">
-                <i class="bi bi-tag me-1"></i>{{ animal.especie }} •
+                <i class="bi bi-tag me-1"></i>{{ animal.especie }} • 
                 <i class="bi bi-gender-ambiguous me-1"></i>{{ animal.sexo }}
               </p>
               <p class="text-muted mb-2">
@@ -145,9 +148,10 @@
 <script>
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { useAuthStore } from "../../stores/auth";
-import Loading from "../../components/common/Loading.vue";
-import Pagination from "../../components/common/Pagination.vue";
-import animalService from "../../services/animalService";
+import Loading from '../../components/common/Loading.vue';
+import Pagination from '../../components/common/Pagination.vue';
+import ImageCarousel from '../../components/common/ImageCarousel.vue';
+import animalService from '../../services/animalService';
 import adopcionService from "../../services/adopcionService";
 import {
   alertaExito,
@@ -165,8 +169,8 @@ import {
 } from "../../utils/helpers";
 
 export default {
-  name: "ClienteAnimales",
-  components: { Loading, Pagination },
+  name: 'ClienteAnimales',
+  components: { Loading, Pagination, ImageCarousel },
   setup() {
     const authStore = useAuthStore();
     const cargando = ref(true);
@@ -206,6 +210,13 @@ export default {
     const animalesPaginados = computed(() =>
       paginar(animalesFiltrados.value, paginaActual.value, itemsPorPagina)
     );
+
+    const obtenerImagenesAnimal = (animal) => {
+      if (animal.imagenes && animal.imagenes.length > 0) {
+        return animal.imagenes.map(img => img.url).filter(url => url);
+      }
+      return [];
+    };
 
     const cargarAnimales = async () => {
       try {
@@ -325,6 +336,7 @@ export default {
       filtrarAnimales,
       limpiarFiltros,
       cambiarPagina,
+      obtenerImagenesAnimal,
       iconoPorEspecie,
       truncar,
       obtenerFotoAnimal,
