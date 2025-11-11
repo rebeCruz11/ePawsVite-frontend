@@ -67,6 +67,32 @@ export default {
     return response;
   },
 
+  // Métodos directos para nuevas vistas
+  async listar() {
+    const response = await this.getAll();
+    return response.data;
+  },
+
+  async obtenerPorId(id) {
+    const response = await this.getById(id);
+    return response.data;
+  },
+
+  async crear(animal) {
+    const response = await api.post('/animales', animal);
+    return response.data;
+  },
+
+  async actualizar(id, animal) {
+    const response = await api.put(`/animales/${id}`, animal);
+    return response.data;
+  },
+
+  async eliminar(id) {
+    const response = await api.delete(`/animales/${id}`);
+    return response.data;
+  },
+
   // Crear animal
   create(animal) {
     return api.post('/animales', animal);

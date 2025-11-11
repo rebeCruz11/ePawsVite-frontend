@@ -1,33 +1,35 @@
 <template>
   <div class="fade-in">
     <div class="d-flex justify-content-between align-items-center mb-4">
-      <h2><i class="bi bi-heart me-2"></i>Mis Animales</h2>
+      <h2>
+        <i class="bi bi-heart me-2"></i>Mis Animales
+      </h2>
       <button class="btn btn-primary" @click="abrirModal()">
         <i class="bi bi-plus-circle me-2"></i>
         Nuevo Animal
       </button>
     </div>
-    
+
     <Loading v-if="cargando" />
-    
+
     <div v-else>
       <div class="row g-4" v-if="animales.length > 0">
         <div class="col-md-4" v-for="animal in animales" :key="animal.idAnimal">
           <div class="card h-100">
-            <!-- Foto del animal o gradiente por defecto -->
-            <!-- Foto del animal -->
-            <div style="height: 200px; position: relative; overflow: hidden; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-              <img 
+            <div
+              style="height: 200px; position: relative; overflow: hidden; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+            >
+              <img
                 v-if="obtenerFotoAnimal(animal)"
-                :src="obtenerFotoAnimal(animal)" 
+                :src="obtenerFotoAnimal(animal)"
                 :alt="animal.nombre"
                 style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;"
                 @error="e => { e.target.style.display = 'none'; console.log('Error al cargar imagen:', obtenerFotoAnimal(animal)); }"
-              >
-              <div 
-                v-if="!obtenerFotoAnimal(animal)" 
+              />
+              <div
+                v-if="!obtenerFotoAnimal(animal)"
                 class="d-flex align-items-center justify-content-center h-100"
-                style="position: relative; z-index: 1;"
+                style="position: relative; z-index: 1"
               >
                 <i :class="`bi ${iconoPorEspecie(animal.especie)} text-white`" style="font-size: 3rem;"></i>
               </div>
@@ -39,61 +41,65 @@
             </div>
             <div class="card-body">
               <h5 class="card-title">{{ animal.nombre }}</h5>
-              <p class="text-muted mb-2">
-                {{ animal.especie }} • {{ animal.sexo }} • {{ animal.edad }} {{ animal.unidadEdad }}
-              </p>
+              <p class="text-muted mb-2">{{ animal.especie }} • {{ animal.sexo }} • {{ animal.edad }} {{ animal.unidadEdad }}</p>
               <p class="card-text small">{{ truncar(animal.descripcion, 60) }}</p>
             </div>
             <div class="card-footer bg-transparent">
-              <button class="btn btn-sm btn-warning me-2" @click="abrirModal(animal)">
+              <button
+                class="btn btn-sm btn-warning me-2"
+                @click="abrirModal(animal)"
+                :disabled="tieneAdopcionAprobada(animal)"
+                :title="tieneAdopcionAprobada(animal) ? 'Animal con adopción aprobada. No se puede editar.' : ''"
+              >
                 <i class="bi bi-pencil"></i> Editar
               </button>
-              <button class="btn btn-sm btn-danger" @click="eliminarAnimal(animal)">
+              <button
+                class="btn btn-sm btn-danger"
+                @click="eliminarAnimal(animal)"
+                :disabled="tieneAdopcionAprobada(animal)"
+                :title="tieneAdopcionAprobada(animal) ? 'Animal con adopción aprobada. No se puede eliminar.' : ''"
+              >
                 <i class="bi bi-trash"></i> Eliminar
               </button>
             </div>
           </div>
         </div>
       </div>
-      
       <div v-else class="empty-state">
         <i class="bi bi-inbox"></i>
         <p>No has registrado animales</p>
       </div>
     </div>
-    
-    <!-- Modal (similar al de Usuarios.vue, adaptado para animales) -->
-    <div class="modal fade" id="animalModal" tabindex="-1">
+
+    <div class="modal fade" id="animalModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">
-              {{ modoEdicion ? 'Editar Animal' : 'Nuevo Animal' }}
-            </h5>
+            <h5 class="modal-title">{{ modoEdicion ? 'Editar Animal' : 'Nuevo Animal' }}</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
+
           <form @submit.prevent="guardarAnimal">
             <div class="modal-body">
-              <!-- Campos del formulario -->
               <div class="mb-3">
                 <label class="form-label">Nombre *</label>
-                <input type="text" class="form-control" v-model="form.nombre" required>
+                <input type="text" v-model="form.nombre" class="form-control" required />
               </div>
-              
+
               <div class="row">
                 <div class="col-md-6 mb-3">
                   <label class="form-label">Especie *</label>
-                  <select class="form-select" v-model="form.especie" required>
+                  <select v-model="form.especie" class="form-select" required>
                     <option value="">Seleccione...</option>
                     <option value="Perro">Perro</option>
                     <option value="Gato">Gato</option>
                     <option value="Otro">Otro</option>
                   </select>
                 </div>
-                
+
                 <div class="col-md-6 mb-3">
                   <label class="form-label">Sexo *</label>
-                  <select class="form-select" v-model="form.sexo" required>
+                  <select v-model="form.sexo" class="form-select" required>
                     <option value="">Seleccione...</option>
                     <option value="Macho">Macho</option>
                     <option value="Hembra">Hembra</option>
@@ -101,65 +107,67 @@
                   </select>
                 </div>
               </div>
-              
+
               <div class="row">
                 <div class="col-md-6 mb-3">
                   <label class="form-label">Edad *</label>
-                  <input type="number" class="form-control" v-model="form.edad" required>
+                  <input type="number" v-model="form.edad" class="form-control" required />
                 </div>
-                
+
                 <div class="col-md-6 mb-3">
                   <label class="form-label">Unidad *</label>
-                  <select class="form-select" v-model="form.unidadEdad" required>
+                  <select v-model="form.unidadEdad" class="form-select" required>
                     <option value="Años">Años</option>
                     <option value="Meses">Meses</option>
                   </select>
                 </div>
               </div>
-              
+
               <div class="mb-3">
                 <label class="form-label">Estado *</label>
-                <select class="form-select" v-model="form.estado" required>
+                <select v-model="form.estado" class="form-select" required>
                   <option value="Disponible">Disponible</option>
                   <option value="Pendiente">Pendiente</option>
-                  <option value="Adoptado">Adoptado</option>
+                  <option value="Aprobada">Aprobada</option>
                   <option value="No disponible">No disponible</option>
                 </select>
               </div>
-              
+
               <div class="mb-3">
                 <label class="form-label">Descripción *</label>
-                <textarea class="form-control" v-model="form.descripcion" rows="3" required></textarea>
+                <textarea v-model="form.descripcion" rows="3" class="form-control" required></textarea>
               </div>
-              
+
               <div class="mb-3">
                 <label class="form-label">URL de la Foto</label>
-                <input 
-                  type="url" 
-                  class="form-control" 
+                <input
+                  type="url"
                   v-model="form.fotoUrl"
                   placeholder="https://ejemplo.com/foto.jpg"
+                  class="form-control"
                   @input="verificarFoto"
-                >
+                />
                 <small class="text-muted">
-                  Ingresa la URL de la foto del animal (puedes usar 
+                  Ingresa la URL de la foto del animal (puedes usar
                   <a href="https://imgur.com/upload" target="_blank">Imgur</a> para subir imágenes)
                 </small>
-                
-                <!-- Vista previa de la foto -->
+
                 <div v-if="fotoValida && form.fotoUrl" class="mt-3">
                   <p class="text-muted mb-2">Vista previa:</p>
-                  <img 
-                    :src="form.fotoUrl" 
-                    class="img-fluid rounded" 
-                    style="max-height: 200px; object-fit: cover;"
+                  <img
+                    :src="form.fotoUrl"
+                    class="img-fluid rounded"
+                    style="max-height: 200px; object-fit: cover"
                     @error="fotoValida = false"
-                  >
+                  />
                 </div>
               </div>
             </div>
+
             <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                Cancelar
+              </button>
               <button type="submit" class="btn btn-primary" :disabled="guardando">
                 <span v-if="guardando">Guardando...</span>
                 <span v-else>Guardar</span>
@@ -178,6 +186,7 @@ import { Modal } from 'bootstrap';
 import { useAuthStore } from '../../stores/auth';
 import Loading from '../../components/common/Loading.vue';
 import animalService from '../../services/animalService';
+import adopcionService from '../../services/adopcionService';
 import imagenAnimalService from '../../services/imagenAnimalService';
 import organizacionService from '../../services/organizacionService';
 import { toast, confirmarEliminar, alertaError, manejarErrorAPI } from '../../utils/alertas';
@@ -197,24 +206,33 @@ export default {
     const miOrganizacion = ref(null);
     const fotoValida = ref(false);
     let modal = null;
-    
+
+    // Carga los animales y sus adopciones para validar estado de adopción aprobada
     const cargarDatos = async () => {
       try {
         const orgResponse = await organizacionService.getByUsuario(authStore.usuarioActual.idUsuario);
-        
         if (!orgResponse.data) {
-          console.warn('Usuario de organización no tiene organización asociada');
           animales.value = [];
           cargando.value = false;
           return;
         }
-        
         miOrganizacion.value = orgResponse.data;
-  const response = await animalService.getByOrganizacion(miOrganizacion.value.idOrganizacion);
-  // Filtrar animales que ya fueron adoptados para que no aparezcan en la lista
-  animales.value = (response.data || []).filter(a => a.estado !== 'Adoptado');
+        const response = await animalService.getByOrganizacion(miOrganizacion.value.idOrganizacion);
+        const animalesData = response.data || [];
+
+        // Para cada animal obtenemos sus adopciones
+        const animalesConAdopciones = await Promise.all(
+          animalesData.map(async (animal) => {
+            const adopcionesResponse = await adopcionService.getByAnimal(animal.idAnimal);
+            return {
+              ...animal,
+              adopciones: adopcionesResponse.data || []
+            };
+          })
+        );
+
+        animales.value = animalesConAdopciones;
       } catch (error) {
-        console.error('Error al cargar animales:', error);
         animales.value = [];
         if (error.response?.status !== 404) {
           manejarErrorAPI(error);
@@ -223,17 +241,30 @@ export default {
         cargando.value = false;
       }
     };
-    
+
+    const tieneAdopcionAprobada = (animal) => {
+      if (!animal.adopciones || animal.adopciones.length === 0) return false;
+      return animal.adopciones.some((adopcion) => adopcion.estado === 'Aprobada');
+    };
+
     const abrirModal = (animal = null) => {
       modoEdicion.value = !!animal;
-      form.value = animal ? { ...animal } : {
-        nombre: '', especie: '', edad: '', unidadEdad: 'Años',
-        sexo: '', estado: 'Disponible', descripcion: '', fotoUrl: ''
-      };
+      form.value = animal
+        ? { ...animal }
+        : {
+            nombre: '',
+            especie: '',
+            edad: '',
+            unidadEdad: 'Años',
+            sexo: '',
+            estado: 'Disponible',
+            descripcion: '',
+            fotoUrl: '',
+          };
       fotoValida.value = !!animal?.fotoUrl;
       modal.show();
     };
-    
+
     const verificarFoto = () => {
       if (!form.value.fotoUrl) {
         fotoValida.value = false;
@@ -246,12 +277,11 @@ export default {
         fotoValida.value = false;
       }
     };
-    
+
     const guardarAnimal = async () => {
-      // Validar campos obligatorios con SweetAlert
       const datosVal = {
         ...form.value,
-        organizacion: { idOrganizacion: miOrganizacion.value.idOrganizacion }
+        organizacion: { idOrganizacion: miOrganizacion.value.idOrganizacion },
       };
 
       const errores = validarAnimal(datosVal);
@@ -265,24 +295,22 @@ export default {
       try {
         if (modoEdicion.value) {
           await animalService.update(form.value.idAnimal, datosVal);
-          // Si se proporcionó una foto URL, intentar crearla en el servicio de imágenes
           if (form.value.fotoUrl) {
             try {
               await imagenAnimalService.create({ idAnimal: form.value.idAnimal, url: form.value.fotoUrl });
             } catch (e) {
-              console.warn('No se pudo crear imagen al actualizar animal:', e);
+              console.warn('Error al crear imagen al actualizar animal:', e);
             }
           }
           toast('Animal actualizado', 'success');
         } else {
           const res = await animalService.create(datosVal);
-          // si backend retorna el animal creado con id
           const nuevoId = res?.data?.idAnimal || res?.data?.id || null;
           if (nuevoId && form.value.fotoUrl) {
             try {
               await imagenAnimalService.create({ idAnimal: nuevoId, url: form.value.fotoUrl });
             } catch (e) {
-              console.warn('No se pudo crear imagen para el nuevo animal:', e);
+              console.warn('Error al crear imagen en nuevo animal:', e);
             }
           }
           toast('Animal creado', 'success');
@@ -295,7 +323,7 @@ export default {
         guardando.value = false;
       }
     };
-    
+
     const eliminarAnimal = async (animal) => {
       const result = await confirmarEliminar(`¿Eliminar a ${animal.nombre}?`);
       if (result.isConfirmed) {
@@ -308,17 +336,30 @@ export default {
         }
       }
     };
-    
+
     onMounted(async () => {
       await cargarDatos();
       modal = new Modal(document.getElementById('animalModal'));
     });
-    
+
     return {
-      cargando, guardando, animales, form, modoEdicion, fotoValida,
-      abrirModal, guardarAnimal, eliminarAnimal, verificarFoto,
-      iconoPorEspecie, colorPorEstado, formatearEstado, truncar, obtenerFotoAnimal
+      cargando,
+      guardando,
+      animales,
+      form,
+      modoEdicion,
+      fotoValida,
+      abrirModal,
+      guardarAnimal,
+      eliminarAnimal,
+      verificarFoto,
+      tieneAdopcionAprobada,
+      iconoPorEspecie,
+      colorPorEstado,
+      formatearEstado,
+      truncar,
+      obtenerFotoAnimal,
     };
-  }
-}
+  },
+};
 </script>
