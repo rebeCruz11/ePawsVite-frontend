@@ -1,0 +1,67 @@
+/* Styles specific for MisAdopciones view */
+.mis-adopciones-toolbar {
+  display:flex;
+  gap:0.75rem;
+  align-items:center;
+  margin-bottom:1rem;
+}
+.mis-adopciones-toolbar .form-control,
+.mis-adopciones-toolbar .form-select { min-width: 160px; }
+
+.mis-adopciones-count { font-weight:600; color:#333; }
+
+.mis-adopcion-card { border-radius:0.6rem; box-shadow:0 6px 18px rgba(15,23,42,0.06); overflow:hidden; transition:transform .15s ease, box-shadow .15s ease; }
+.mis-adopcion-card:hover { transform: translateY(-4px); box-shadow:0 10px 30px rgba(15,23,42,0.12); }
+.mis-adopcion-card .card-body { padding:1rem 1.15rem; }
+.mis-adopcion-card .badge-estado { min-width:110px; text-align:center; padding:.35rem .6rem; border-radius:0.5rem; font-weight:600; }
+
+.mis-adopciones-empty { text-align:center; padding:3rem 1rem; color:#6c757d; }
+
+@media (max-width:767px) {
+  .mis-adopciones-toolbar { flex-direction:column; align-items:stretch; }
+  .mis-adopciones-toolbar .form-control, .mis-adopciones-toolbar .form-select { width:100%; }
+}
+
+/* Fancy filter styles */
+.mis-adopciones-toolbar { align-items:center; padding:0.6rem; background: linear-gradient(90deg,#fff,#fbfbff); border-radius:0.8rem; border:1px solid rgba(0,0,0,0.04); }
+.mis-adopciones-toolbar .form-control.form-control-sm { border-radius:40px 12px 12px 40px; padding-left:1.2rem; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); }
+.mis-adopciones-toolbar .form-select.form-select-sm { border-radius:12px; min-width:180px; }
+.mis-adopciones-toolbar .ms-auto { display:flex; flex-direction:column; align-items:flex-end; gap:4px }
+
+/* Paw search button */
+.paw-search-btn {
+  width:44px; height:44px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; border:none; cursor:pointer;
+  background: radial-gradient(circle at 35% 30%, #ffd89b, #ff7a18 60%);
+  box-shadow: 0 6px 14px rgba(255,122,24,0.25), inset 0 -4px 8px rgba(0,0,0,0.06);
+  color:#fff; font-size:18px; transition: transform .12s ease, box-shadow .12s ease; margin-left:8px;
+}
+.paw-search-btn:hover { transform: translateY(-3px) scale(1.03); box-shadow: 0 10px 22px rgba(255,122,24,0.2); }
+.paw-search-btn:active { transform: scale(.98); }
+
+/* Paw icon decorative: make it look like a paw using the icon */
+.paw-search-btn .bi-paw { font-size:1.15rem; }
+
+/* Make select and input pair look like a single pill on larger screens */
+.mis-adopciones-toolbar .input-group { display:flex; gap:0.5rem; align-items:center; }
+
+.mis-adopciones-count { font-weight:600; color:#333; font-size:0.9rem }
+
+/* Paw pulse animation */
+.paw-search-btn.pulse { animation: pawPulse 700ms ease-out; }
+@keyframes pawPulse {
+  0% { transform: scale(1); box-shadow: 0 6px 14px rgba(255,122,24,0.25); }
+  50% { transform: scale(1.12); box-shadow: 0 14px 30px rgba(255,122,24,0.18); }
+  100% { transform: scale(1); box-shadow: 0 6px 14px rgba(255,122,24,0.25); }
+}
+
+/* Subtitle under header */
+.mis-adopciones-subtitle { margin-top: -0.4rem; margin-bottom: 1rem; color:#6c757d; }
+
+/* Empty state more friendly */
+.empty-state { text-align:center; padding:3rem 1rem; color:#6c757d; border:1px dashed rgba(0,0,0,0.04); border-radius:0.6rem; background:linear-gradient(180deg,#fff,#fbfbff); }
+.empty-state i { font-size:3rem; color:#ff7a18; margin-bottom:0.5rem }
+
+/* Badge polish */
+.card .badge { font-weight:700; padding:.45rem .7rem; border-radius:0.6rem; }
+
+

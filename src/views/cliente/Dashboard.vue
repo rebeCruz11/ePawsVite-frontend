@@ -1,67 +1,62 @@
 <template>
-  <div class="fade-in">
-    <h2 class="mb-4 d-flex align-items-center gap-2">
-      <i class="bi bi-speedometer2"></i>Mi Dashboard
-    </h2>
+  <div class="dashboard-page">
     <Loading v-if="cargando" />
 
     <div v-else>
-      <div class="row g-4">
-        <!-- Panel izquierdo: estadísticas y acciones -->
-        <div class="col-lg-7">
-          <!-- Estadísticas estilo limpio -->
-          <div class="d-flex flex-wrap align-items-stretch gap-4 mb-4">
-            <section class="stat-summary bg-light flex-fill px-4 py-3">
-              <div class="d-flex align-items-center justify-content-between">
-                <div>
-                  <div class="stat-heading">Adopciones</div>
-                  <div class="stat-number text-primary">{{ stats.adopciones }}</div>
+      <!-- Hero Banner (cliente) -->
+      <ClientHero :title="clientName" subtitle="Panel personal de cliente">
+        <template #actions>
+          <button class="btn btn-action primary" @click="irAAnimales">
+            <i class="bi bi-heart me-1"></i>
+            Ver Animales
+          </button>
+          <button class="btn btn-action secondary" @click="irACrearReporte">
+            <i class="bi bi-flag me-1"></i>
+            Reportar
+          </button>
+          <button class="btn btn-action success" @click="irAMisAdopciones">
+            <i class="bi bi-clipboard-check me-1"></i>
+            Mis Solicitudes
+          </button>
+        </template>
+      </ClientHero>
+
+      <!-- Stats Grid -->
+      <div class="stats-grid">
+        <StatCard icon="bi bi-clipboard-check" label="Adopciones" :value="stats.adopciones" :trend="`${stats.adopcionesPendientes} pendientes`" variant="primary" />
+        <StatCard icon="bi bi-flag" label="Reportes" :value="stats.reportes" :trend="`${stats.reportesPendientes} pendientes`" variant="warning" />
+        <StatCard icon="bi bi-people-fill" label="Solicitudes recientes" :value="historial.length" :trend="'Últimas 3 mostradas abajo'" variant="info" />
+      </div>
+
+      <div class="dashboard-content">
+        <div class="content-left">
+          <!-- Recent Adopt Requests (only 3) -->
+          <div class="chart-card">
+            <div class="chart-header">
+              <div class="chart-title"><i class="bi bi-clipboard-check"></i><span>Mis Solicitudes Recientes</span></div>
+            </div>
+            <div class="chart-body" style="height:auto;">
+              <div v-if="recientesAdopciones.length === 0" class="empty-state">
+                <i class="bi bi-inbox"></i>
+                <p>No tienes solicitudes recientes.</p>
+              </div>
+              <div v-else>
+                <div v-for="a in recientesAdopciones" :key="a.idAdopcion">
+                  <ReportItem
+                    :title="a.animal?.nombre || 'Sin nombre'"
+                    :meta="(a.organizacion?.nombre || a.animal?.organizacion?.nombre || '—') + (a.animal?.especie ? (' • ' + a.animal.especie) : '')"
+                    :date="formatearFecha(a.fechaSolicitud)"
+                    :status="formatearEstado(a.estado)"
+                    icon="bi bi-heart"
+                    :statusClass="estadoToBadgeClass(a.estado)"
+                  />
                 </div>
-                <span class="stat-icon stat-icon-primary">
-                  <i class="bi bi-clipboard-check"></i>
-                </span>
               </div>
-              <div class="stat-footer mt-2">
-                <span>{{ stats.adopcionesPendientes }} pendientes</span>
-                <span class="ms-3 text-danger">{{ stats.adopcionesRechazadas }} rechazadas</span>
-              </div>
-            </section>
-            <section class="stat-summary bg-light flex-fill px-4 py-3">
-              <div class="d-flex align-items-center justify-content-between">
-                <div>
-                  <div class="stat-heading">Reportes</div>
-                  <div class="stat-number text-warning">{{ stats.reportes }}</div>
-                </div>
-                <span class="stat-icon stat-icon-yellow">
-                  <i class="bi bi-flag"></i>
-                </span>
-              </div>
-              <div class="stat-footer mt-2">
-                <span>{{ stats.reportesPendientes }} pendientes</span>
-              </div>
-            </section>
-          </div>
-          <!-- Acciones principales -->
-          <div class="d-flex flex-wrap gap-4 mb-0 mt-2">
-            <router-link to="/cliente/animales" class="action-btn d-flex flex-column align-items-center text-decoration-none">
-              <span class="action-img action-img-blue mb-2"><i class="bi bi-heart"></i></span>
-              <span class="fw-semibold">Ver Animales</span>
-              <span class="action-desc">Encuentra tu compañero</span>
-            </router-link>
-            <router-link to="/cliente/crear-reporte" class="action-btn d-flex flex-column align-items-center text-decoration-none">
-              <span class="action-img action-img-yellow mb-2"><i class="bi bi-flag"></i></span>
-              <span class="fw-semibold">Reportar Animal</span>
-              <span class="action-desc">Ayuda a un animal</span>
-            </router-link>
-            <router-link to="/cliente/mis-adopciones" class="action-btn d-flex flex-column align-items-center text-decoration-none">
-              <span class="action-img action-img-green mb-2"><i class="bi bi-clipboard-check"></i></span>
-              <span class="fw-semibold">Mis Solicitudes</span>
-              <span class="action-desc">Revisa tus adopciones</span>
-            </router-link>
+            </div>
           </div>
         </div>
-        <!-- Historial lateral derecho estilo lista -->
-        <div class="col-lg-5">
+
+        <div class="content-right">
           <div class="historial-container p-0">
             <div class="px-4 pt-4 pb-0 d-flex align-items-center">
               <h5 class="historial-titulo mb-0">Historial de Adopciones</h5>
@@ -91,7 +86,7 @@
                     <div class="fw-bold text-primary historial-nombre">{{ adopcion.animal.nombre }}</div>
                     <div class="small text-muted">{{ adopcion.animal.descripcion?.slice(0, 50) }}...</div>
                     <div class="d-flex align-items-center gap-2 mt-1">
-                      <span class="badge badge-status" :class="`bg-${colorPorEstado(adopcion.estado)}`">{{ formatearEstado(adopcion.estado) }}</span>
+                      <span class="badge badge-status" :style="{ background: colorPorEstado(adopcion.estado) }">{{ formatearEstado(adopcion.estado) }}</span>
                       <span class="small">{{ formatearFecha(adopcion.fechaSolicitud) }}</span>
                     </div>
                     <div class="small text-secondary">{{ adopcion.comentarios }}</div>
@@ -104,16 +99,19 @@
             </div>
           </div>
         </div>
-        <!-- Fin Historial -->
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
+import { useRouter } from 'vue-router';
 import { useAuthStore } from "../../stores/auth";
 import Loading from "../../components/common/Loading.vue";
+import ClientHero from '../../components/common/ClientHero.vue';
+import StatCard from '../../components/common/StatCard.vue';
+import ReportItem from '../../components/common/ReportItem.vue';
 import adopcionService from "../../services/adopcionService";
 import reporteService from "../../services/reporteService";
 import { manejarErrorAPI } from "../../utils/alertas";
@@ -121,11 +119,13 @@ import { colorPorEstado, formatearEstado, formatearFecha } from "../../utils/hel
 
 export default {
   name: "ClienteDashboard",
-  components: { Loading },
+  components: { Loading, ClientHero, StatCard, ReportItem },
   setup() {
     const authStore = useAuthStore();
-    const cargando = ref(true);
+  const cargando = ref(true);
+  const router = useRouter();
     const historial = ref([]);
+    const reportesData = ref([]);
     const stats = ref({
       adopciones: 0,
       adopcionesPendientes: 0,
@@ -150,6 +150,7 @@ export default {
         };
 
         historial.value = adopciones.data.sort((a, b) => new Date(b.fechaSolicitud) - new Date(a.fechaSolicitud));
+        reportesData.value = reportes.data || [];
       } catch (error) {
         manejarErrorAPI(error);
       } finally {
@@ -159,6 +160,23 @@ export default {
 
     onMounted(() => cargarEstadisticas());
 
+    const clientName = computed(() => authStore.usuarioActual?.nombre || authStore.usuarioActual?.nombreUsuario || 'Mi Cuenta');
+    const recientesAdopciones = computed(() => (historial.value || []).slice(0,3));
+    const recientesReportes = computed(() => (reportesData.value || []).slice(0,3));
+
+    const estadoToBadgeClass = (estado) => {
+      if (!estado) return 'bg-secondary';
+      const e = String(estado).toLowerCase();
+      if (e.includes('aprob')) return 'bg-success';
+      if (e.includes('pend')) return 'bg-warning text-dark';
+      if (e.includes('rech') || e.includes('cancel')) return 'bg-danger';
+      return 'bg-secondary';
+    };
+
+    const irAAnimales = () => { router.push({ path: '/cliente/animales' }); };
+    const irACrearReporte = () => { router.push({ path: '/cliente/crear-reporte' }); };
+    const irAMisAdopciones = () => { router.push({ path: '/cliente/mis-adopciones' }); };
+
     return {
       cargando,
       stats,
@@ -166,6 +184,13 @@ export default {
       colorPorEstado,
       formatearEstado,
       formatearFecha,
+      clientName,
+      recientesAdopciones,
+      recientesReportes,
+      irAAnimales,
+      irACrearReporte,
+      irAMisAdopciones,
+      estadoToBadgeClass
     };
   },
 };
@@ -293,4 +318,53 @@ export default {
   .col-lg-5, .col-lg-7 { flex: 0 0 100%; max-width: 100%;}
   .historial-container {margin-top: 22px;}
 }
+
+/* Mejoras visuales para "Mis Solicitudes" (recientes) */
+.report-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: linear-gradient(180deg,#ffffff 0%, #f4fbff 100%);
+  border-left: 6px solid rgba(102,126,234,0.14);
+  box-shadow: 0 6px 18px rgba(102,126,234,0.06);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.report-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 30px rgba(102,126,234,0.12);
+}
+.report-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  display:flex; align-items:center; justify-content:center;
+  font-size: 1.25rem;
+  flex-shrink:0;
+}
+.report-details {
+  flex: 1;
+}
+.report-title {
+  font-weight: 800;
+  color: #0f3b66;
+  margin-bottom: 0.15rem;
+  font-size: 1.05rem; /* más grande y legible */
+  line-height: 1.1;
+}
+.report-meta, .report-date {
+  font-size: 0.9rem;
+  color: #4f7396;
+}
+.report-status { margin-left: 0.5rem; display:flex; align-items:center; }
+.status-badge {
+  padding: 0.35rem 0.75rem;
+  border-radius: 18px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff !important;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+}
+
 </style>

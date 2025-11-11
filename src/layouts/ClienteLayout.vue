@@ -59,6 +59,9 @@
 
 <script>
 import Navbar from '../components/common/Navbar.vue';
+// Estilos globales para vistas de cliente
+import '../assets/pages/dashboard-org-theme.css';
+import '../assets/pages/cliente-common.css';
 
 export default {
   name: 'ClienteLayout',

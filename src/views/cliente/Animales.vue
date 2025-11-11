@@ -1,8 +1,17 @@
 <template>
   <div class="fade-in">
-    <h2 class="mb-4">
-      <i class="bi bi-heart me-2"></i>Animales en Adopción
-    </h2>
+    <ClientHero title="Animales en Adopción" subtitle="Explora los animales disponibles y solicita la adopción">
+      <template #actions>
+        <button class="btn btn-action primary" @click="$router.push('/cliente/mis-adopciones')">
+          <i class="bi bi-clipboard-check me-1"></i>
+          Mis Solicitudes
+        </button>
+        <button class="btn btn-action secondary" @click="$router.push('/cliente/crear-reporte')">
+          <i class="bi bi-flag me-1"></i>
+          Reportar
+        </button>
+      </template>
+    </ClientHero>
 
     <!-- Filtros -->
     <div class="card mb-4">
@@ -89,11 +98,27 @@
             </div>
             <div class="card-footer bg-transparent">
               <button
-                v-if="puedeSolicitar(animal)"
+                v-if="puedeSolicitar(animal) && !excedeLimiteSemanal() && puedeEnviarConcurrente()"
                 class="btn btn-primary w-100"
                 @click="solicitarAdopcion(animal)"
               >
                 <i class="bi bi-heart me-2"></i>Solicitar Adopción
+              </button>
+              <button
+                v-else-if="!puedeEnviarConcurrente()"
+                class="btn btn-outline-danger w-100"
+                disabled
+                title="Has alcanzado el máximo de 3 solicitudes activas. Cancela una para crear otra."
+              >
+                <i class="bi bi-x-circle me-2"></i>Máximo 3 solicitudes activas (restan {{ 3 - solicitudesActivas() }})
+              </button>
+              <button
+                v-else-if="excedeLimiteSemanal()"
+                class="btn btn-outline-danger w-100"
+                disabled
+                title="Has alcanzado el límite semanal de solicitudes aprobadas (3)"
+              >
+                <i class="bi bi-x-circle me-2"></i>Límite semanal alcanzado (restan {{ restantesSemanal() }})
               </button>
               <button
                 v-else-if="ultimaSolicitudEstado(animal) === 'Pendiente'"
@@ -151,8 +176,10 @@ import { useAuthStore } from "../../stores/auth";
 import Loading from '../../components/common/Loading.vue';
 import Pagination from '../../components/common/Pagination.vue';
 import ImageCarousel from '../../components/common/ImageCarousel.vue';
+import ClientHero from '../../components/common/ClientHero.vue';
 import animalService from '../../services/animalService';
 import adopcionService from "../../services/adopcionService";
+// dashboard styles are imported globally via ClienteLayout
 import {
   alertaExito,
   confirmar,
@@ -170,7 +197,7 @@ import {
 
 export default {
   name: 'ClienteAnimales',
-  components: { Loading, Pagination, ImageCarousel },
+  components: { Loading, Pagination, ImageCarousel, ClientHero },
   setup() {
     const authStore = useAuthStore();
     const cargando = ref(true);
@@ -269,7 +296,54 @@ export default {
       return rechazos >= 2;
     };
 
+    // Conteo de adopciones aprobadas en los últimos 7 días
+    const aceptadasUltimos7Dias = () => {
+      try {
+        const ahora = new Date();
+        const desde = new Date(ahora.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const aceptadas = (adopcionesUsuario.value || []).filter(a => {
+          if (!a.estado) return false;
+          if (a.estado !== 'Aprobada') return false;
+          const fecha = a.fechaAdopcion || a.fecha || a.fechaCreacion || a.updatedAt || a.fechaAprobacion || null;
+          if (!fecha) return false;
+          const d = new Date(fecha);
+          if (isNaN(d)) return false;
+          return d >= desde && d <= ahora;
+        });
+        return aceptadas.length;
+      } catch (e) {
+        return 0;
+      }
+    };
+
+    const excedeLimiteSemanal = () => {
+      return aceptadasUltimos7Dias() >= 3;
+    };
+
+    const restantesSemanal = () => {
+      const r = 3 - aceptadasUltimos7Dias();
+      return r >= 0 ? r : 0;
+    };
+
+    // Conteo de solicitudes activas (pendientes) del usuario
+    const solicitudesActivas = () => {
+      try {
+        return (adopcionesUsuario.value || []).filter(a => (a.estado || '') === 'Pendiente').length;
+      } catch (e) {
+        return 0;
+      }
+    };
+
+    // Permite enviar nuevas solicitudes si tiene menos de 3 pendientes
+    const puedeEnviarConcurrente = () => {
+      return solicitudesActivas() < 3;
+    };
+
     const solicitarAdopcion = async (animal) => {
+      if (excedeLimiteSemanal()) {
+        toast(`Has alcanzado el límite semanal de 3 adopciones aprobadas. Intenta más tarde.`, 'error');
+        return;
+      }
       if (!puedeSolicitar(animal)) {
         toast(
           "No puedes adoptar este animal más de 2 veces. Si necesitas ayuda contáctanos.",
@@ -343,6 +417,11 @@ export default {
       ultimaSolicitudEstado,
       puedeSolicitar,
       bloqueadoPorRechazos,
+      excedeLimiteSemanal,
+      aceptadasUltimos7Dias,
+      restantesSemanal,
+      solicitudesActivas,
+      puedeEnviarConcurrente,
     };
   },
 };

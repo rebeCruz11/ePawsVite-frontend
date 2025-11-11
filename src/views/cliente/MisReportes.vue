@@ -1,6 +1,42 @@
 <template>
   <div class="fade-in">
-    <h2 class="mb-4"><i class="bi bi-flag-fill me-2"></i>Mis Reportes</h2>
+    <ClientHero title="Mis Reportes" subtitle="Consulta y gestiona tus reportes enviados">
+      <template #actions>
+        <button class="btn btn-action primary" @click="$router.push('/cliente/crear-reporte')">
+          <i class="bi bi-plus-circle me-1"></i>
+          Nuevo Reporte
+        </button>
+      </template>
+    </ClientHero>
+    
+    <!-- Toolbar de filtros -->
+    <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
+      <div class="input-group" style="min-width:260px;">
+        <input type="text" class="form-control form-control-sm" placeholder="Buscar título, ubicación, organización..." v-model="busquedaTexto" />
+        <button class="btn btn-sm btn-outline-secondary" type="button" @click="busquedaTexto = ''">Limpiar</button>
+      </div>
+
+      <select class="form-select form-select-sm" v-model="filtroAsignado" style="max-width:200px;">
+        <option value="">Todos (Asignado)</option>
+        <option value="organizacion">Asignado a Organización</option>
+        <option value="veterinaria">Asignado a Veterinaria</option>
+        <option value="sin">Sin asignar</option>
+      </select>
+
+      <select class="form-select form-select-sm" v-model="filtroEstadoReporte" style="max-width:180px;">
+        <option value="">Todos los estados</option>
+        <option v-for="e in estadosUnicos" :key="e" :value="e">{{ formatearEstado(e) }}</option>
+      </select>
+
+      <div class="d-flex gap-1" style="min-width:220px;">
+        <input type="date" class="form-control form-control-sm" v-model="fechaDesde" />
+        <input type="date" class="form-control form-control-sm" v-model="fechaHasta" />
+      </div>
+
+      <div class="ms-auto text-end small text-muted">
+        Mostrando <strong>{{ reportesFiltrados.length }}</strong> de {{ reportes.length }}
+      </div>
+    </div>
     
     <Loading v-if="cargando" />
     
@@ -25,7 +61,6 @@
                 <td>{{ reporte.titulo }}</td>
                 <td>{{ reporte.ubicacion || 'N/A' }}</td>
                 <td>
-                  <!-- Lógica especial para detectar rechazos -->
                   <span 
                     v-if="reporte.estado === 'Cerrado' && !reporte.organizacion"
                     class="badge bg-danger"
@@ -69,7 +104,6 @@
                   </span>
                 </td>
                 <td>
-                  <!-- Un reporte está "rechazado" si está Cerrado pero sin organización -->
                   <button 
                     class="btn btn-sm btn-warning me-2" 
                     @click="abrirModalEditar(reporte)"
@@ -110,7 +144,7 @@
         </div>
 
         <div class="d-flex justify-content-between align-items-center mt-3">
-          <small class="text-muted">Mostrando {{ reportes.length }} resultados</small>
+          <small class="text-muted">Resultados filtrados: {{ reportesFiltrados.length }}</small>
           <Pagination v-if="totalPaginas > 1" :pagina-actual="paginaActual" :total-paginas="totalPaginas" @cambiar-pagina="(p) => paginaActual = p" />
         </div>
       </div>
@@ -409,10 +443,12 @@ import { Modal } from 'bootstrap';
 import { useAuthStore } from '../../stores/auth';
 import Loading from '../../components/common/Loading.vue';
 import ImageUploader from '../../components/common/ImageUploader.vue';
+import ClientHero from '../../components/common/ClientHero.vue';
 import reporteService from '../../services/reporteService';
 import organizacionService from '../../services/organizacionService';
 import veterinariaService from '../../services/veterinariaService';
 import cloudinaryService from '../../services/cloudinaryService';
+// dashboard styles are imported globally via ClienteLayout
 import Pagination from '../../components/common/Pagination.vue';
 import { alertaHTML, alertaError, manejarErrorAPI, toast } from '../../utils/alertas';
 import { validarReporte } from '../../utils/validaciones';
@@ -422,7 +458,8 @@ export default {
   name: 'ClienteMisReportes',
   components: { 
     Loading,
-    ImageUploader
+    ImageUploader,
+    ClientHero
   },
   setup() {
     const authStore = useAuthStore();
@@ -432,6 +469,12 @@ export default {
   const reportes = ref([]);
   const paginaActual = ref(1);
   const itemsPorPagina = 8;
+  // filtros
+  const busquedaTexto = ref('');
+  const filtroAsignado = ref(''); // 'organizacion' | 'veterinaria' | 'sin' | ''
+  const filtroEstadoReporte = ref('');
+  const fechaDesde = ref('');
+  const fechaHasta = ref('');
     const organizaciones = ref([]);
     const veterinarias = ref([]);
     const imageUploaderEdit = ref(null);
@@ -481,10 +524,43 @@ export default {
       }
     };
 
-    const totalPaginas = computed(() => Math.max(1, Math.ceil(reportes.value.length / itemsPorPagina)));
+    // filtros aplicados
+    const reportesFiltrados = computed(() => {
+      const q = (busquedaTexto.value || '').toString().toLowerCase().trim();
+      const desde = fechaDesde.value ? new Date(fechaDesde.value) : null;
+      const hasta = fechaHasta.value ? new Date(fechaHasta.value) : null;
+
+      return (reportes.value || []).filter(r => {
+        // asignado
+        if (filtroAsignado.value) {
+          if (filtroAsignado.value === 'organizacion' && !r.organizacion) return false;
+          if (filtroAsignado.value === 'veterinaria' && !r.veterinaria) return false;
+          if (filtroAsignado.value === 'sin' && (r.organizacion || r.veterinaria)) return false;
+        }
+        // estado
+        if (filtroEstadoReporte.value && r.estado !== filtroEstadoReporte.value) return false;
+        // rango fechas
+        if ((desde || hasta) && r.fechaReporte) {
+          const fecha = new Date(r.fechaReporte);
+          if (desde && fecha < new Date(desde.setHours(0,0,0,0))) return false;
+          if (hasta && fecha > new Date(hasta.setHours(23,59,59,999))) return false;
+        }
+        // texto
+        if (q) {
+          const titulo = (r.titulo || '').toString().toLowerCase();
+          const ubic = (r.ubicacion || '').toString().toLowerCase();
+          const org = (r.organizacion?.nombreOrganizacion || '').toString().toLowerCase();
+          const vet = (r.veterinaria?.nombreClinica || '').toString().toLowerCase();
+          if (!titulo.includes(q) && !ubic.includes(q) && !org.includes(q) && !vet.includes(q)) return false;
+        }
+        return true;
+      });
+    });
+
+    const totalPaginas = computed(() => Math.max(1, Math.ceil(reportesFiltrados.value.length / itemsPorPagina)));
     const reportesPaginados = computed(() => {
       const start = (paginaActual.value - 1) * itemsPorPagina;
-      return reportes.value.slice(start, start + itemsPorPagina);
+      return reportesFiltrados.value.slice(start, start + itemsPorPagina);
     });
     
     const verFoto = (url) => {
@@ -684,20 +760,29 @@ export default {
     });
     
     return {
-      cargando, 
+      cargando,
       guardandoEdicion,
       guardandoReasignacion,
-      reportes, 
-  verFoto,
+      reportes,
+      verFoto,
       organizaciones,
-  Pagination,
-  paginaActual,
-  itemsPorPagina,
-  totalPaginas,
-  reportesPaginados,
+      veterinarias,
+      // filtros
+      busquedaTexto,
+      filtroAsignado,
+      filtroEstadoReporte,
+      fechaDesde,
+      fechaHasta,
+      reportesFiltrados,
+      // paginación
+      Pagination,
+      paginaActual,
+      itemsPorPagina,
+      totalPaginas,
+      reportesPaginados,
+      // modales y helpers
       organizacionesFiltradas,
       organizacionesFiltradasReasignar,
-      veterinarias,
       busquedaOrg,
       busquedaOrgReasignar,
       organizacionTempSeleccionada,
@@ -713,11 +798,11 @@ export default {
       abrirModalReasignar,
       confirmarReasignacion,
       reasignarForm,
-      editForm, 
-      editErrores, 
+      editForm,
+      editErrores,
       guardarEdicion,
-      colorPorEstado, 
-      formatearEstado, 
+      colorPorEstado,
+      formatearEstado,
       formatearFechaHora
     };
   }

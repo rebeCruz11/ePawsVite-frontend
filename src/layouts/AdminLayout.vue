@@ -81,3 +81,7 @@ export default {
   }
 }
 </script>
+
+<style scoped>
+@import '../assets/pages/dashboard-org-theme.css';
+</style>

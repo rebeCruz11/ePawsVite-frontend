@@ -1,0 +1,132 @@
+/* cliente-common.css
+   Ajustes visuales específicos para vistas de cliente
+   Complementa `dashboard-org-theme.css` con pequeños refinamientos
+*/
+
+:root {
+  --epaws-primary: #1766bc;
+  --epaws-accent: #667eea;
+  --epaws-success: #2ca58d;
+  --epaws-warning: #f6c84c;
+  --epaws-muted: #5d7ea6;
+}
+
+/* Encabezados y títulos */
+h2, .historial-titulo {
+  color: var(--epaws-primary);
+  font-weight: 700;
+}
+
+/* tipografía base */
+body {
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+/* Cards y contenedores */
+.card, .chart-card, .stat-card-modern {
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 8px 28px rgba(23,102,188,0.06);
+}
+
+/* Grid para las stat-cards */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 18px;
+}
+@media (max-width: 991px) { .stats-grid { grid-template-columns: 1fr; } }
+
+/* Botones primarios y acciones */
+.btn-primary, .btn-action.primary {
+  background: linear-gradient(90deg, var(--epaws-accent), var(--epaws-primary));
+  border: none;
+  color: #fff;
+  box-shadow: 0 6px 18px rgba(23,102,188,0.14);
+}
+.btn-action {
+  display:inline-flex; align-items:center; gap:0.6rem; padding:0.6rem 0.9rem; border-radius:10px; font-weight:700;
+}
+.btn-primary:disabled { opacity: 0.7; }
+
+/* Botón huella en MisAdopciones */
+.paw-search-btn {
+  background: var(--epaws-primary);
+  color: #fff;
+  border: none;
+  padding: 0.45rem 0.6rem;
+  margin-left: -3px;
+  border-radius: 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.paw-search-btn.pulse { transform: scale(1.06); transition: transform .18s ease; }
+
+/* Formularios y selects */
+.form-control, .form-select {
+  border-radius: 8px;
+  border: 1px solid rgba(16,78,139,0.08);
+}
+
+/* Chart card refinements */
+.chart-card { padding: 1rem; background: linear-gradient(180deg,#ffffff, #fbfdff); border-radius:12px; }
+.chart-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+.chart-title { font-weight:800; color:var(--epaws-primary); display:flex; align-items:center; gap:0.6rem; }
+
+/* Dashboard content columns */
+.dashboard-content { display:flex; gap:1.25rem; align-items:flex-start; }
+.content-left { flex: 0 0 42%; }
+.content-right { flex: 1; }
+@media (max-width:991px) { .dashboard-content { flex-direction:column; } .content-left, .content-right { width:100%; } }
+
+/* Historial card subtle improvements */
+.historial-container { padding-bottom: 8px; }
+
+
+/* Ajustes de la sidebar para Layout cliente */
+.sidebar {
+  /* Usar la misma paleta que dashboard-org-theme.css */
+  --epaws-hero-start: #667eea; /* gradient start */
+  --epaws-hero-end: #764ba2;   /* gradient end */
+  --epaws-primary: #667eea;    /* accent / primary */
+  --epaws-accent: #764ba2;
+  --epaws-success: #28a745;
+  --epaws-warning: #ffc107;
+  --epaws-muted: #6c757d;
+  --epaws-title: #1a1a1a;      /* títulos / textos oscuros */
+  --epaws-hero-text: #ffffff;  /* texto del hero */
+.sidebar .nav-link {
+  color: var(--epaws-muted);
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--epaws-hero-start) 0%, var(--epaws-hero-end) 100%);
+  border-radius: 24px;
+  padding: 20px 22px;
+  margin-bottom: 18px;
+  box-shadow: 0 10px 40px rgba(102, 126, 234, 0.18);
+  position: relative;
+  overflow: hidden;
+
+/* Mejor lectura en listas */
+.mis-adopicion-card .card-title, .report-title {
+  width:80px; height:80px; border-radius:20px; display:flex; align-items:center; justify-content:center;
+  background: rgba(255,255,255,0.18); color: var(--epaws-hero-text); font-size:2.4rem; box-shadow: 0 8px 24px rgba(102,126,234,0.12);
+}
+
+  margin:0; font-size:1.5rem; font-weight:800; color:var(--epaws-hero-text); }
+/* Pequeño ajuste en los badge/status para consistencia */
+  margin:0; font-size:0.98rem; color: rgba(255,255,255,0.9); }
+.badge-status, .status-badge, .badge {
+  text-transform: none;
+  font-weight: 700;
+}
+
+/* Responsive tweaks */
+@media (max-width: 991px) {
+  .sidebar { display: none; }
+  main.col-md-10 { max-width: 100%; }
+}

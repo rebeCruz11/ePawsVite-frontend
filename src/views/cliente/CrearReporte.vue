@@ -1,6 +1,13 @@
 <template>
   <div class="fade-in">
-    <h2 class="mb-4"><i class="bi bi-flag me-2"></i>Reportar Animal</h2>
+    <ClientHero title="Reportar Animal" subtitle="Crea un nuevo reporte para ayudar a un animal">
+      <template #actions>
+        <button class="btn btn-action secondary" @click="$router.push('/cliente/mis-reportes')">
+          <i class="bi bi-flag-fill me-1"></i>
+          Mis Reportes
+        </button>
+      </template>
+    </ClientHero>
     
     <div class="row justify-content-center">
       <div class="col-md-10">
@@ -234,15 +241,18 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/auth';
 import ImageUploader from '../../components/common/ImageUploader.vue';
+import ClientHero from '../../components/common/ClientHero.vue';
 import reporteService from '../../services/reporteService';
 import organizacionService from '../../services/organizacionService';
 import veterinariaService from '../../services/veterinariaService';
 import cloudinaryService from '../../services/cloudinaryService';
 import { alertaExito, alertaError, manejarErrorAPI } from '../../utils/alertas';
+// dashboard styles are imported globally via ClienteLayout
 
 export default {
   name: 'CrearReporte',
   components: { ImageUploader },
+  components: { ImageUploader, ClientHero },
   setup() {
     const router = useRouter();
     const authStore = useAuthStore();
