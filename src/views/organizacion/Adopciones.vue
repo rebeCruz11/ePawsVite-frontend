@@ -16,19 +16,39 @@
             </div>
           </div>
           
-          <!-- Filter -->
-          <div class="filter-section">
-            <label class="filter-label">
-              <i class="bi bi-funnel-fill"></i>
-              Filtrar por estado
-            </label>
-            <select v-model="estadoFiltro" class="filter-select" @change="cargar">
-              <option value="">Todos los estados</option>
-              <option value="Pendiente">⏳ Pendientes</option>
-              <option value="Aprobada">✅ Aprobadas</option>
-              <option value="Rechazada">❌ Rechazadas</option>
-              <option value="Cancelada">🚫 Canceladas</option>
-            </select>
+          <!-- Search and Filter -->
+          <div class="search-filter-section">
+            <div class="search-box">
+              <i class="bi bi-search"></i>
+              <input 
+                v-model="busqueda" 
+                type="text" 
+                class="search-input" 
+                placeholder="Buscar por nombre de solicitante o animal..."
+              />
+              <button 
+                v-if="busqueda" 
+                @click="busqueda = ''" 
+                class="clear-search"
+                title="Limpiar búsqueda"
+              >
+                <i class="bi bi-x-circle-fill"></i>
+              </button>
+            </div>
+            
+            <div class="filter-section">
+              <label class="filter-label">
+                <i class="bi bi-funnel-fill"></i>
+                Filtrar por estado
+              </label>
+              <select v-model="estadoFiltro" class="filter-select">
+                <option value="">Todos los estados</option>
+                <option value="Pendiente">⏳ Pendientes</option>
+                <option value="Aprobada">✅ Aprobadas</option>
+                <option value="Rechazada">❌ Rechazadas</option>
+                <option value="Cancelada">🚫 Canceladas</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -268,6 +288,7 @@ export default {
     const paginaActual = ref(1);
     const itemsPorPagina = 5;
     const estadoFiltro = ref("");
+    const busqueda = ref("");
     const adopciones = ref([]);
 
     const paginas = computed(() => {
@@ -278,8 +299,28 @@ export default {
     });
 
     const adopcionesFiltradas = computed(() => {
-      if (!estadoFiltro.value) return adopciones.value;
-      return adopciones.value.filter((a) => a.estado === estadoFiltro.value);
+      let resultado = adopciones.value;
+      
+      // Filtrar por estado
+      if (estadoFiltro.value) {
+        resultado = resultado.filter((a) => a.estado === estadoFiltro.value);
+      }
+      
+      // Filtrar por búsqueda
+      if (busqueda.value.trim()) {
+        const busquedaLower = busqueda.value.toLowerCase().trim();
+        resultado = resultado.filter((a) => {
+          const nombreSolicitante = nombreCompleto(a.usuario).toLowerCase();
+          const nombreAnimal = (a.animal?.nombre || '').toLowerCase();
+          const correoSolicitante = (a.usuario?.correo || '').toLowerCase();
+          
+          return nombreSolicitante.includes(busquedaLower) ||
+                 nombreAnimal.includes(busquedaLower) ||
+                 correoSolicitante.includes(busquedaLower);
+        });
+      }
+      
+      return resultado;
     });
 
     const adopcionesPaginadas = computed(() => {
@@ -289,6 +330,10 @@ export default {
     });
 
     watch(estadoFiltro, () => {
+      paginaActual.value = 1;
+    });
+
+    watch(busqueda, () => {
       paginaActual.value = 1;
     });
 
@@ -394,6 +439,7 @@ export default {
       paginas,
       paginaActual,
       estadoFiltro,
+      busqueda,
       aprobar,
       rechazar,
       getStatusIcon,
@@ -435,7 +481,7 @@ export default {
 .header-content {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 2rem;
 }
 
@@ -467,6 +513,67 @@ export default {
   margin: 0;
   font-weight: 700;
   color: #1a1a1a;
+}
+
+/* ============================================
+   SEARCH & FILTER SECTION
+   ============================================ */
+.search-filter-section {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+  max-width: 700px;
+}
+
+.search-box {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.search-box i.bi-search {
+  position: absolute;
+  left: 1rem;
+  color: #6c757d;
+  pointer-events: none;
+  font-size: 1rem;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 3rem 0.75rem 2.75rem;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  transition: all 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15);
+}
+
+.clear-search {
+  position: absolute;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  color: #6c757d;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  transition: color 0.3s ease;
+}
+
+.clear-search:hover {
+  color: #dc3545;
+}
+
+.clear-search i {
+  font-size: 1.1rem;
 }
 
 .filter-section {
@@ -906,12 +1013,19 @@ export default {
     align-items: flex-start;
   }
   
+  .search-filter-section {
+    width: 100%;
+    flex-direction: column;
+    max-width: 100%;
+  }
+  
   .filter-section {
     width: 100%;
   }
   
   .filter-select {
     flex: 1;
+    width: 100%;
   }
   
   .stats-row {

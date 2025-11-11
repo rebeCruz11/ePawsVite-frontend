@@ -24,6 +24,7 @@
 
       <!-- Animals Grid -->
       <div v-if="animales.length > 0">
+        <!-- Stats -->
         <div class="animals-stats mb-4">
           <div class="stat-badge">
             <i class="bi bi-heart-fill"></i>
@@ -39,8 +40,87 @@
           </div>
         </div>
 
+        <!-- Filters & Search -->
+        <div class="filters-section">
+          <div class="search-box">
+            <i class="bi bi-search"></i>
+            <input 
+              type="text" 
+              v-model="filtroBusqueda" 
+              placeholder="Buscar por nombre..."
+              class="search-input"
+            />
+          </div>
+
+          <div class="filter-group">
+            <div class="filter-item">
+              <i class="bi bi-tag"></i>
+              <select v-model="filtroEspecie" class="filter-select">
+                <option value="">Todas las especies</option>
+                <option value="Perro">🐕 Perro</option>
+                <option value="Gato">🐈 Gato</option>
+                <option value="Otro">🐾 Otro</option>
+              </select>
+            </div>
+
+            <div class="filter-item">
+              <i class="bi bi-flag"></i>
+              <select v-model="filtroEstado" class="filter-select">
+                <option value="">Todos los estados</option>
+                <option value="Disponible">Disponible</option>
+                <option value="Pendiente">Pendiente</option>
+                <option value="Adoptado">Adoptado</option>
+                <option value="No_disponible">No disponible</option>
+              </select>
+            </div>
+
+            <div class="filter-item">
+              <i class="bi bi-gender-ambiguous"></i>
+              <select v-model="filtroSexo" class="filter-select">
+                <option value="">Todos los sexos</option>
+                <option value="Macho">Macho</option>
+                <option value="Hembra">Hembra</option>
+                <option value="No especificado">No especificado</option>
+              </select>
+            </div>
+
+            <div class="filter-item">
+              <i class="bi bi-sort-down"></i>
+              <select v-model="ordenamiento" class="filter-select">
+                <option value="reciente">Más recientes</option>
+                <option value="antiguo">Más antiguos</option>
+                <option value="nombre-asc">Nombre (A-Z)</option>
+                <option value="nombre-desc">Nombre (Z-A)</option>
+              </select>
+            </div>
+          </div>
+
+          <button class="btn-clear-filters" @click="limpiarFiltros" v-if="hayFiltrosActivos">
+            <i class="bi bi-x-circle"></i>
+            <span>Limpiar Filtros</span>
+          </button>
+        </div>
+
+        <!-- Results Info -->
+        <div class="results-info">
+          <p class="results-text">
+            Mostrando {{ animalesPaginados.length }} de {{ animalesFiltrados.length }} animales
+            <span v-if="hayFiltrosActivos" class="filter-indicator">(filtrado)</span>
+          </p>
+          <div class="pagination-size">
+            <label>Mostrar:</label>
+            <select v-model="itemsPorPagina" class="size-select">
+              <option :value="6">6</option>
+              <option :value="12">12</option>
+              <option :value="24">24</option>
+              <option :value="animales.length">Todos</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Animals Grid -->
         <div class="animals-grid">
-          <div v-for="animal in animales" :key="animal.idAnimal" class="animal-card-modern">
+          <div v-for="animal in animalesPaginados" :key="animal.idAnimal" class="animal-card-modern">
             <!-- Status Badge -->
             <div class="animal-status-badge" :class="animal.estado.toLowerCase()">
               <span>{{ formatearEstado(animal.estado) }}</span>
@@ -115,6 +195,37 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination-container" v-if="totalPaginas > 1">
+          <button 
+            class="pagination-btn" 
+            @click="paginaActual--" 
+            :disabled="paginaActual === 1"
+          >
+            <i class="bi bi-chevron-left"></i>
+          </button>
+          
+          <div class="pagination-numbers">
+            <button
+              v-for="pagina in paginasVisibles"
+              :key="pagina"
+              class="pagination-number"
+              :class="{ active: pagina === paginaActual }"
+              @click="paginaActual = pagina"
+            >
+              {{ pagina }}
+            </button>
+          </div>
+          
+          <button 
+            class="pagination-btn" 
+            @click="paginaActual++" 
+            :disabled="paginaActual === totalPaginas"
+          >
+            <i class="bi bi-chevron-right"></i>
+          </button>
         </div>
       </div>
       
@@ -231,7 +342,7 @@
                         v-model="form.edad" 
                         class="field-input" 
                         min="0"
-                        max="50"
+                        max="15"
                         required 
                       />
                     </div>
@@ -303,7 +414,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { Modal } from 'bootstrap';
 import { useAuthStore } from '../../stores/auth';
 import Loading from '../../components/common/Loading.vue';
@@ -336,6 +447,121 @@ export default {
     const archivosNuevos = ref([]);
     const imagenesExistentes = ref([]);
     let modal = null;
+
+    // Filtros y paginación
+    const filtroBusqueda = ref('');
+    const filtroEspecie = ref('');
+    const filtroEstado = ref('');
+    const filtroSexo = ref('');
+    const ordenamiento = ref('reciente');
+    const paginaActual = ref(1);
+    const itemsPorPagina = ref(12);
+
+    // Computed: Animales filtrados
+    const animalesFiltrados = computed(() => {
+      let resultado = [...animales.value];
+
+      // Filtro de búsqueda por nombre
+      if (filtroBusqueda.value.trim()) {
+        const busqueda = filtroBusqueda.value.toLowerCase();
+        resultado = resultado.filter(animal =>
+          animal.nombre.toLowerCase().includes(busqueda)
+        );
+      }
+
+      // Filtro por especie
+      if (filtroEspecie.value) {
+        resultado = resultado.filter(animal => animal.especie === filtroEspecie.value);
+      }
+
+      // Filtro por estado
+      if (filtroEstado.value) {
+        resultado = resultado.filter(animal => animal.estado === filtroEstado.value);
+      }
+
+      // Filtro por sexo
+      if (filtroSexo.value) {
+        resultado = resultado.filter(animal => animal.sexo === filtroSexo.value);
+      }
+
+      // Ordenamiento
+      switch (ordenamiento.value) {
+        case 'reciente':
+          resultado.sort((a, b) => (b.idAnimal || 0) - (a.idAnimal || 0));
+          break;
+        case 'antiguo':
+          resultado.sort((a, b) => (a.idAnimal || 0) - (b.idAnimal || 0));
+          break;
+        case 'nombre-asc':
+          resultado.sort((a, b) => a.nombre.localeCompare(b.nombre));
+          break;
+        case 'nombre-desc':
+          resultado.sort((a, b) => b.nombre.localeCompare(a.nombre));
+          break;
+      }
+
+      return resultado;
+    });
+
+    // Computed: Total de páginas
+    const totalPaginas = computed(() => {
+      return Math.ceil(animalesFiltrados.value.length / itemsPorPagina.value);
+    });
+
+    // Computed: Animales paginados
+    const animalesPaginados = computed(() => {
+      const inicio = (paginaActual.value - 1) * itemsPorPagina.value;
+      const fin = inicio + itemsPorPagina.value;
+      return animalesFiltrados.value.slice(inicio, fin);
+    });
+
+    // Computed: Páginas visibles en paginación
+    const paginasVisibles = computed(() => {
+      const total = totalPaginas.value;
+      const actual = paginaActual.value;
+      const paginas = [];
+
+      if (total <= 7) {
+        for (let i = 1; i <= total; i++) {
+          paginas.push(i);
+        }
+      } else {
+        if (actual <= 4) {
+          for (let i = 1; i <= 5; i++) paginas.push(i);
+          paginas.push('...');
+          paginas.push(total);
+        } else if (actual >= total - 3) {
+          paginas.push(1);
+          paginas.push('...');
+          for (let i = total - 4; i <= total; i++) paginas.push(i);
+        } else {
+          paginas.push(1);
+          paginas.push('...');
+          for (let i = actual - 1; i <= actual + 1; i++) paginas.push(i);
+          paginas.push('...');
+          paginas.push(total);
+        }
+      }
+
+      return paginas.filter(p => p !== '...' || paginas.indexOf(p) === paginas.lastIndexOf(p));
+    });
+
+    // Computed: Verificar si hay filtros activos
+    const hayFiltrosActivos = computed(() => {
+      return filtroBusqueda.value !== '' ||
+             filtroEspecie.value !== '' ||
+             filtroEstado.value !== '' ||
+             filtroSexo.value !== '';
+    });
+
+    // Función para limpiar filtros
+    const limpiarFiltros = () => {
+      filtroBusqueda.value = '';
+      filtroEspecie.value = '';
+      filtroEstado.value = '';
+      filtroSexo.value = '';
+      paginaActual.value = 1;
+    };
 
     const cargarDatos = async () => {
       try {
@@ -583,17 +809,35 @@ export default {
     };
 
     const eliminarAnimal = async (animal) => {
+      // Verificar si tiene solicitudes de adopción
+      if (animal.adopciones && animal.adopciones.length > 0) {
+        await alertaError(
+          `No puedes eliminar a ${animal.nombre}`,
+          `Este animal tiene ${animal.adopciones.length} solicitud(es) de adopción asociada(s). Debes gestionar las solicitudes antes de eliminar el animal.`
+        );
+        return;
+      }
+
       const result = await confirmarEliminar(
-        `¿Estás seguro de eliminar a ${animal.nombre}?`
+        `¿Estás seguro de eliminar a ${animal.nombre}?`,
+        'Esta acción no se puede deshacer'
       );
       
       if (result.isConfirmed) {
         try {
           await animalService.delete(animal.idAnimal);
-          toast('Animal eliminado', 'success');
+          toast('Animal eliminado correctamente', 'success');
           await cargarDatos();
         } catch (error) {
-          manejarErrorAPI(error);
+          console.error('Error al eliminar animal:', error);
+          if (error.response?.status === 409 || error.response?.data?.message?.includes('adopcion')) {
+            alertaError(
+              'No se puede eliminar el animal',
+              'Este animal tiene solicitudes de adopción asociadas'
+            );
+          } else {
+            manejarErrorAPI(error);
+          }
         }
       }
     };
@@ -608,6 +852,19 @@ export default {
       modoEdicion,
       imageUploader,
       imagenesExistentes,
+      filtroBusqueda,
+      filtroEspecie,
+      filtroEstado,
+      filtroSexo,
+      ordenamiento,
+      paginaActual,
+      itemsPorPagina,
+      animalesFiltrados,
+      animalesPaginados,
+      totalPaginas,
+      paginasVisibles,
+      hayFiltrosActivos,
+      limpiarFiltros,
       abrirModal,
       guardarAnimal,
       eliminarAnimal,
@@ -1223,6 +1480,227 @@ export default {
 }
 
 /* ============================================
+   FILTERS & SEARCH
+   ============================================ */
+.filters-section {
+  background: white;
+  border-radius: 20px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.search-box {
+  position: relative;
+  flex: 1;
+  min-width: 250px;
+}
+
+.search-box i {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6c757d;
+  font-size: 1.1rem;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.875rem 1rem 0.875rem 3rem;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+}
+
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.filter-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-item i {
+  color: #667eea;
+  font-size: 1.1rem;
+}
+
+.filter-select {
+  padding: 0.75rem 1rem;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.15);
+}
+
+.btn-clear-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-clear-filters:hover {
+  background: #dc3545;
+  color: white;
+}
+
+/* ============================================
+   RESULTS INFO
+   ============================================ */
+.results-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+  border-radius: 12px;
+}
+
+.results-text {
+  margin: 0;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.filter-indicator {
+  color: #667eea;
+  font-weight: 700;
+}
+
+.pagination-size {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pagination-size label {
+  margin: 0;
+  color: #6c757d;
+  font-weight: 600;
+}
+
+.size-select {
+  padding: 0.5rem 1rem;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.size-select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+/* ============================================
+   PAGINATION
+   ============================================ */
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 3rem;
+  padding: 2rem 0;
+}
+
+.pagination-btn {
+  width: 45px;
+  height: 45px;
+  border-radius: 12px;
+  border: 2px solid #e9ecef;
+  background: white;
+  color: #667eea;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1.1rem;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+  transform: translateY(-2px);
+}
+
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-numbers {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pagination-number {
+  min-width: 45px;
+  height: 45px;
+  padding: 0 0.75rem;
+  border-radius: 12px;
+  border: 2px solid #e9ecef;
+  background: white;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-weight: 600;
+}
+
+.pagination-number:hover {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  border-color: #667eea;
+}
+
+.pagination-number.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+/* ============================================
    RESPONSIVE
    ============================================ */
 @media (max-width: 1200px) {
@@ -1244,6 +1722,45 @@ export default {
   
   .animals-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .filters-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .search-box {
+    min-width: 100%;
+  }
+  
+  .filter-group {
+    flex-direction: column;
+  }
+  
+  .filter-item {
+    width: 100%;
+  }
+  
+  .filter-select {
+    width: 100%;
+  }
+  
+  .results-info {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .pagination-size {
+    justify-content: space-between;
+  }
+  
+  .pagination-container {
+    flex-wrap: wrap;
+  }
+  
+  .pagination-numbers {
+    flex-wrap: wrap;
   }
   
   .form-fields {

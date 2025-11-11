@@ -101,7 +101,7 @@ const routes = [
       {
         path: 'perfil/editar',
         name: 'OrganizacionEditarPerfil',
-        component: () => import('../views/usuario/EditarPerfil.vue')
+        component: () => import('../views/organizacion/EditarPerfil.vue')
       }
     ]
   },
@@ -136,7 +136,7 @@ const routes = [
       {
         path: 'perfil/editar',
         name: 'VeterinariaEditarPerfil',
-        component: () => import('../views/usuario/EditarPerfil.vue')
+        component: () => import('../views/veterinaria/EditarPerfil.vue')
       }
     ]
   },

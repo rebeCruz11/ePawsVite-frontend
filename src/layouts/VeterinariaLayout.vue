@@ -25,13 +25,6 @@
               </li>
               
               <li class="nav-item">
-                <router-link to="/veterinaria/registros-medicos" class="nav-link" active-class="active">
-                  <i class="bi bi-file-medical"></i>
-                  Registros Médicos
-                </router-link>
-              </li>
-              
-              <li class="nav-item">
                 <router-link to="/veterinaria/perfil" class="nav-link" active-class="active">
                   <i class="bi bi-hospital"></i>
                   Mi Perfil

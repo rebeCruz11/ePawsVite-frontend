@@ -146,20 +146,6 @@
               </div>
             </div>
 
-            <div class="chart-card">
-              <div class="chart-header">
-                <div class="chart-title">
-                  <i class="bi bi-building"></i>
-                  <span>Top Organizaciones</span>
-                </div>
-                <div class="chart-badge">
-                  Top 10
-                </div>
-              </div>
-              <div class="chart-body">
-                <canvas ref="adopcionesOrgChart"></canvas>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -282,6 +268,9 @@ export default {
     
     const cargarDatos = async () => {
       try {
+        cargando.value = true;
+        
+        // Obtener organización
         const orgResponse = await organizacionService.getByUsuario(authStore.usuarioActual.idUsuario);
         
         if (!orgResponse.data) {
@@ -290,34 +279,43 @@ export default {
           return;
         }
         
-        orgName.value = orgResponse.data.nombreOrganizacion || orgResponse.data.nombre || orgName.value;
+        const org = orgResponse.data;
+        orgName.value = org.nombreOrganizacion || org.nombre || orgName.value;
         
+        // Cargar animales y reportes en paralelo
         const [animales, reportes] = await Promise.all([
-          animalService.getByOrganizacion(orgResponse.data.idOrganizacion),
-          reporteService.getByOrganizacion(orgResponse.data.idOrganizacion)
+          animalService.getByOrganizacion(org.idOrganizacion).catch(() => ({ data: [] })),
+          reporteService.getByOrganizacion(org.idOrganizacion).catch(() => ({ data: [] }))
         ]);
         
         animalesData.value = animales.data || [];
         reportesData.value = reportes.data || [];
         
+        // Calcular estadísticas
         stats.value = {
           animales: animalesData.value.length,
           disponibles: animalesData.value.filter(a => a.estado === 'Disponible').length,
           adopciones: animalesData.value.filter(a => a.estado === 'Adoptado').length,
-          reportes: reportesData.value.length
+          reportes: reportesData.value.filter(r => r.estado !== 'Cerrado').length // Solo reportes activos
         };
+        
         cargando.value = false;
+        
+        // Crear gráficos después de que los datos estén cargados
         await nextTick();
         crearGraficoEspecies(animalesData.value);
         crearGraficoAdopciones(animalesData.value);
+        crearGraficoReportes(reportesData.value);
       } catch (error) {
         console.error('Error al cargar dashboard organización:', error);
         stats.value = { animales: 0, disponibles: 0, adopciones: 0, reportes: 0 };
+        animalesData.value = [];
+        reportesData.value = [];
+        cargando.value = false;
+        
         if (error.response?.status !== 404) {
           manejarErrorAPI(error);
         }
-      } finally {
-        cargando.value = false;
       }
     };
     
@@ -329,6 +327,7 @@ export default {
     const adopcionesOrgChart = ref(null);
     const adopcionesChartInstance = ref(null);
     const especiesChartInstance = ref(null);
+    const reportesChartInstance = ref(null);
 
     const crearGraficoEspecies = (animales) => {
       try {
@@ -376,9 +375,69 @@ export default {
       }
     };
 
+    const crearGraficoReportes = (reportes) => {
+      try {
+        if (!reportesChart.value) return;
+        const ctx = reportesChart.value.getContext('2d');
+        if (reportesChartInstance.value?.destroy) reportesChartInstance.value.destroy();
+        
+        // Contar reportes por estado
+        const estados = {
+          'Pendiente': 0,
+          'En_proceso': 0,
+          'Cerrado': 0
+        };
+        
+        (reportes || []).forEach(r => {
+          const estado = r.estado || 'Pendiente';
+          if (estados.hasOwnProperty(estado)) {
+            estados[estado]++;
+          }
+        });
+        
+        const labels = ['Pendiente', 'En Proceso', 'Cerrado'];
+        const data = [estados.Pendiente, estados.En_proceso, estados.Cerrado];
+        const colores = [
+          'rgba(255, 193, 7, 0.85)',   // Amarillo - Pendiente
+          'rgba(13, 110, 253, 0.85)',  // Azul - En proceso
+          'rgba(25, 135, 84, 0.85)'    // Verde - Cerrado
+        ];
+        
+        reportesChartInstance.value = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels,
+            datasets: [{
+              data,
+              backgroundColor: colores,
+              borderColor: colores.map(c => c.replace('0.85', '1')),
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'right',
+                labels: { color: '#000' }
+              },
+              tooltip: {
+                bodyColor: '#000',
+                titleColor: '#000'
+              }
+            }
+          }
+        });
+      } catch (e) {
+        console.warn('Error creando gráfico reportes:', e);
+      }
+    };
+
     onUnmounted(() => {
       try { adopcionesChartInstance.value?.destroy(); } catch(e){}
       try { especiesChartInstance.value?.destroy(); } catch(e){}
+      try { reportesChartInstance.value?.destroy(); } catch(e){}
     });
 
     const recientesReportes = computed(() => {

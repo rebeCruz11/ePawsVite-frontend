@@ -102,7 +102,7 @@
                   <i class="bi bi-heart-fill"></i>
                 </div>
                 <div class="stat-content">
-                  <span class="stat-value">0</span>
+                  <span class="stat-value">{{ stats.animales }}</span>
                   <span class="stat-label">Animales Registrados</span>
                 </div>
               </div>
@@ -112,7 +112,7 @@
                   <i class="bi bi-flag-fill"></i>
                 </div>
                 <div class="stat-content">
-                  <span class="stat-value">0</span>
+                  <span class="stat-value">{{ stats.reportes }}</span>
                   <span class="stat-label">Reportes Activos</span>
                 </div>
               </div>
@@ -122,7 +122,7 @@
                   <i class="bi bi-award-fill"></i>
                 </div>
                 <div class="stat-content">
-                  <span class="stat-value">0</span>
+                  <span class="stat-value">{{ stats.adopciones }}</span>
                   <span class="stat-label">Adopciones Exitosas</span>
                 </div>
               </div>
@@ -139,6 +139,9 @@ import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '../../stores/auth';
 import Loading from '../../components/common/Loading.vue';
 import organizacionService from '../../services/organizacionService';
+import animalService from '../../services/animalService';
+import reporteService from '../../services/reporteService';
+import adopcionService from '../../services/adopcionService';
 import { manejarErrorAPI } from '../../utils/alertas';
 import { nombreCompleto } from '../../utils/helpers';
 
@@ -149,6 +152,11 @@ export default {
     const authStore = useAuthStore();
     const cargando = ref(true);
     const organizacion = ref(null);
+    const stats = ref({
+      animales: 0,
+      reportes: 0,
+      adopciones: 0
+    });
     
     const iniciales = computed(() => {
       if (!organizacion.value) return '';
@@ -164,10 +172,53 @@ export default {
       try {
         const r = await organizacionService.getByUsuario(authStore.usuarioActual.idUsuario);
         organizacion.value = r.data;
+        
+        // Cargar estadísticas
+        if (organizacion.value?.idOrganizacion) {
+          await Promise.all([
+            cargarAnimales(),
+            cargarReportes(),
+            cargarAdopciones()
+          ]);
+        }
       } catch (e) {
         manejarErrorAPI(e);
       } finally {
         cargando.value = false;
+      }
+    };
+    
+    const cargarAnimales = async () => {
+      try {
+        const r = await animalService.getByOrganizacion(organizacion.value.idOrganizacion);
+        stats.value.animales = r.data?.length || 0;
+      } catch (e) {
+        console.error('Error al cargar animales:', e);
+      }
+    };
+    
+    const cargarReportes = async () => {
+      try {
+        const r = await reporteService.getByOrganizacion(organizacion.value.idOrganizacion);
+        // Contar solo reportes activos (no cerrados)
+        stats.value.reportes = r.data?.filter(rep => rep.estado !== 'Cerrado').length || 0;
+      } catch (e) {
+        console.error('Error al cargar reportes:', e);
+        stats.value.reportes = 0;
+      }
+    };
+    
+    const cargarAdopciones = async () => {
+      try {
+        // Obtener todas las adopciones y filtrar por animales de esta organización
+        const r = await adopcionService.getAll();
+        // Contar solo adopciones aprobadas de animales de esta organización
+        stats.value.adopciones = r.data?.filter(adop => 
+          adop.estado === 'Aprobada' && 
+          adop.animal?.organizacion?.idOrganizacion === organizacion.value.idOrganizacion
+        ).length || 0;
+      } catch (e) {
+        console.error('Error al cargar adopciones:', e);
       }
     };
     
@@ -176,6 +227,7 @@ export default {
     return {
       cargando,
       organizacion,
+      stats,
       iniciales,
       nombreCompleto
     };
