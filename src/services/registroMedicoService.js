@@ -12,8 +12,8 @@ export default {
     return response.data;
   },
 
-  async obtenerPorAnimal(idAnimal) {
-    const response = await api.get(`/registros-medicos/animal/${idAnimal}`);
+  async obtenerPorReporte(idReporte) {
+    const response = await api.get(`/registros-medicos/reporte/${idReporte}`);
     return response.data;
   },
 
@@ -47,9 +47,9 @@ export default {
     return api.get(`/registros-medicos/${id}`);
   },
 
-  // Obtener registros médicos por animal
-  getByAnimal(idAnimal) {
-    return api.get(`/registros-medicos/animal/${idAnimal}`);
+  // Obtener registros médicos por reporte (ACTUALIZADO)
+  getByReporte(idReporte) {
+    return api.get(`/registros-medicos/reporte/${idReporte}`);
   },
 
   // Obtener registros médicos por veterinaria

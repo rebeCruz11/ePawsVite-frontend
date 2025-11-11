@@ -121,29 +121,44 @@
                       </div>
                     </template>
                     <template v-else>
-                      <!-- Con veterinaria asignada: puede reasignar o cerrar -->
-                      <div class="d-flex flex-column gap-2 align-items-center">
-                        <span class="badge bg-info">
-                          <i class="bi bi-hospital me-1"></i>
-                          Asignado a: {{ reporte.veterinaria.nombreClinica || 'Veterinaria' }}
-                        </span>
-                        <div class="d-flex gap-2">
-                          <button 
-                            class="btn btn-sm btn-warning" 
-                            @click="reasignarVeterinaria(reporte)"
-                            title="La veterinaria rechazó, asignar otra"
-                          >
-                            <i class="bi bi-arrow-repeat me-1"></i>Reasignar
-                          </button>
-                          <button 
-                            class="btn btn-sm btn-success" 
-                            @click="cerrarReporte(reporte)"
-                            title="Cerrar reporte (tratamiento completado)"
-                          >
-                            <i class="bi bi-check-circle me-1"></i>Cerrar
-                          </button>
+                      <!-- Con veterinaria asignada -->
+                      <template v-if="tieneRegistrosMedicos(reporte)">
+                        <!-- La veterinaria YA ACEPTÓ y creó registros médicos: solo mostrar estado -->
+                        <div class="d-flex flex-column gap-2 align-items-center">
+                          <span class="badge bg-success">
+                            <i class="bi bi-clipboard-check me-1"></i>
+                            En atención médica
+                          </span>
+                          <small class="text-muted">
+                            La veterinaria está atendiendo el caso
+                          </small>
                         </div>
-                      </div>
+                      </template>
+                      <template v-else>
+                        <!-- Veterinaria asignada pero NO ha aceptado: puede reasignar o cerrar -->
+                        <div class="d-flex flex-column gap-2 align-items-center">
+                          <span class="badge bg-info">
+                            <i class="bi bi-hospital me-1"></i>
+                            Asignado a: {{ reporte.veterinaria.nombreClinica || 'Veterinaria' }}
+                          </span>
+                          <div class="d-flex gap-2">
+                            <button 
+                              class="btn btn-sm btn-warning" 
+                              @click="reasignarVeterinaria(reporte)"
+                              title="La veterinaria rechazó, asignar otra"
+                            >
+                              <i class="bi bi-arrow-repeat me-1"></i>Reasignar
+                            </button>
+                            <button 
+                              class="btn btn-sm btn-success" 
+                              @click="cerrarReporte(reporte)"
+                              title="Cerrar reporte (tratamiento completado)"
+                            >
+                              <i class="bi bi-check-circle me-1"></i>Cerrar
+                            </button>
+                          </div>
+                        </div>
+                      </template>
                     </template>
                   </template>
 
@@ -548,6 +563,12 @@ export default {
       alertaHTML(`<img src="${url}" class="img-fluid rounded" alt="Foto del reporte">`, 'Foto del Reporte');
     };
 
+    // Helper: Verificar si un reporte tiene registros médicos
+    const tieneRegistrosMedicos = (reporte) => {
+      // Verificar si el reporte tiene el array de registros médicos
+      return reporte.registrosMedicos && reporte.registrosMedicos.length > 0;
+    };
+
     onMounted(() => cargarReportes());
 
     return {
@@ -575,6 +596,7 @@ export default {
       formatearEstado,
       formatearFecha,
       nombreCompleto,
+      tieneRegistrosMedicos,
     };
   }
 };

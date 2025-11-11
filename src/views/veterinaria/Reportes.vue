@@ -62,13 +62,13 @@
                     <span v-else>--</span>
                   </td>
                   <td class="text-center">
-                    <!-- Estado: En proceso (recién asignado) -->
-                    <template v-if="r.estado === 'En_proceso' && !tieneRegistrosMedicos(r)">
+                    <!-- Estado: Pendiente de aceptación -->
+                    <template v-if="r.estado === 'En_proceso' && !r.aceptadoPorVeterinaria">
                       <div class="d-flex gap-2 justify-content-center">
                         <button 
                           class="btn btn-sm btn-success" 
                           @click="aceptarReporte(r)"
-                          title="Aceptar caso y crear registro médico"
+                          title="Aceptar caso para atención"
                         >
                           <i class="bi bi-check-circle me-1"></i>Aceptar
                         </button>
@@ -82,22 +82,15 @@
                       </div>
                     </template>
 
-                    <!-- Estado: En proceso (aceptado, con registros) -->
-                    <template v-else-if="r.estado === 'En_proceso' && tieneRegistrosMedicos(r)">
+                    <!-- Estado: Aceptado, sin consulta médica -->
+                    <template v-else-if="r.estado === 'En_proceso' && r.aceptadoPorVeterinaria && !tieneRegistrosMedicos(r)">
                       <div class="d-flex gap-2 justify-content-center">
                         <button 
                           class="btn btn-sm btn-primary" 
                           @click="abrirModalRegistro(r)"
-                          title="Agregar nuevo registro médico"
+                          title="Crear registro médico"
                         >
-                          <i class="bi bi-clipboard-plus me-1"></i>Agregar
-                        </button>
-                        <button 
-                          class="btn btn-sm btn-success" 
-                          @click="cerrarReporte(r)"
-                          title="Tratamiento completado"
-                        >
-                          <i class="bi bi-check-circle me-1"></i>Finalizar
+                          <i class="bi bi-clipboard-plus me-1"></i>Crear Consulta
                         </button>
                       </div>
                     </template>
@@ -133,161 +126,88 @@
   <div class="modal fade" id="modalRegistroMedico" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
-        <div class="modal-header">
+        <div class="modal-header bg-primary text-white">
           <h5 class="modal-title">
             <i class="bi bi-clipboard-pulse me-2"></i>
-            {{ modalTitulo }}
+            Registro Médico - {{ reporteSeleccionado?.titulo }}
           </h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
           <form @submit.prevent="guardarRegistroMedico">
             <!-- Información del reporte -->
-            <div class="alert alert-info" v-if="reporteSeleccionado">
-              <strong>Reporte:</strong> {{ reporteSeleccionado.titulo }}<br>
-              <strong>Descripción:</strong> {{ reporteSeleccionado.descripcion }}<br>
-              <strong>Ubicación:</strong> {{ reporteSeleccionado.ubicacion }}
-            </div>
-
-            <!-- Animal (si ya existe) o crear nuevo -->
-            <div class="mb-3" v-if="!reporteSeleccionado?.animal">
-              <label class="form-label fw-bold">Primero debe registrar al animal encontrado</label>
-              
+            <div class="alert alert-info mb-4">
               <div class="row">
-                <div class="col-md-6 mb-3">
-                  <label class="form-label">Nombre del Animal *</label>
-                  <input 
-                    type="text" 
-                    class="form-control" 
-                    v-model="nuevoAnimal.nombre"
-                    required
-                  />
+                <div class="col-md-12">
+                  <strong><i class="bi bi-file-text me-1"></i> Reporte:</strong> {{ reporteSeleccionado?.titulo }}
                 </div>
-
-                <div class="col-md-6 mb-3">
-                  <label class="form-label">Especie *</label>
-                  <select class="form-select" v-model="nuevoAnimal.especie" required>
-                    <option value="">Seleccione...</option>
-                    <option value="Perro">Perro</option>
-                    <option value="Gato">Gato</option>
-                    <option value="Otro">Otro</option>
-                  </select>
+                <div class="col-md-12 mt-2">
+                  <strong><i class="bi bi-chat-text me-1"></i> Descripción:</strong> {{ reporteSeleccionado?.descripcion }}
                 </div>
-
-                <div class="col-md-4 mb-3">
-                  <label class="form-label">Edad *</label>
-                  <input 
-                    type="number" 
-                    class="form-control" 
-                    v-model.number="nuevoAnimal.edad"
-                    min="0"
-                    required
-                  />
-                </div>
-
-                <div class="col-md-4 mb-3">
-                  <label class="form-label">Unidad *</label>
-                  <select class="form-select" v-model="nuevoAnimal.unidadEdad" required>
-                    <option value="Años">Años</option>
-                    <option value="Meses">Meses</option>
-                  </select>
-                </div>
-
-                <div class="col-md-4 mb-3">
-                  <label class="form-label">Sexo *</label>
-                  <select class="form-select" v-model="nuevoAnimal.sexo" required>
-                    <option value="">Seleccione...</option>
-                    <option value="Macho">Macho</option>
-                    <option value="Hembra">Hembra</option>
-                    <option value="No_especificado">No especificado</option>
-                  </select>
-                </div>
-
-                <div class="col-12 mb-3">
-                  <label class="form-label">Descripción</label>
-                  <textarea 
-                    class="form-control" 
-                    v-model="nuevoAnimal.descripcion"
-                    rows="2"
-                  ></textarea>
+                <div class="col-md-12 mt-2">
+                  <strong><i class="bi bi-geo-alt me-1"></i> Ubicación:</strong> {{ reporteSeleccionado?.ubicacion }}
                 </div>
               </div>
             </div>
 
-            <div class="alert alert-success" v-else>
-              <strong>Animal:</strong> {{ reporteSeleccionado.animal.nombre }} 
-              ({{ reporteSeleccionado.animal.especie }})
-            </div>
-
-            <hr>
-
-            <!-- Registro Médico -->
-            <h6 class="mb-3"><i class="bi bi-heart-pulse me-2"></i>Registro Médico</h6>
-
+            <!-- Formulario de Registro Médico -->
             <div class="row">
-              <div class="col-md-6 mb-3">
-                <label class="form-label">Tipo de Atención *</label>
+              <div class="col-12 mb-3">
+                <label class="form-label fw-bold">
+                  <i class="bi bi-clipboard-check me-1"></i> Tipo de Atención *
+                </label>
                 <select class="form-select" v-model="registroMedico.tipoAtencion" required>
                   <option value="">Seleccione...</option>
-                  <option value="Consulta">Examen Inicial</option>
+                  <option value="Consulta">Consulta</option>
                   <option value="Tratamiento">Tratamiento</option>
-                  <option value="Alta">Alta Médica</option>
                   <option value="Vacunacion">Vacunación</option>
+                  <option value="Alta">Alta Médica</option>
                 </select>
               </div>
 
-              <div class="col-md-6 mb-3">
-                <label class="form-label">Fecha de Atención</label>
-                <input 
-                  type="date" 
-                  class="form-control" 
-                  v-model="registroMedico.fechaAtencion"
-                />
-              </div>
-
               <div class="col-12 mb-3">
-                <label class="form-label">Diagnóstico *</label>
+                <label class="form-label fw-bold">
+                  <i class="bi bi-heart-pulse me-1"></i> Diagnóstico *
+                </label>
                 <textarea 
                   class="form-control" 
                   v-model="registroMedico.diagnostico"
                   rows="3"
-                  placeholder="Describa el diagnóstico del animal"
+                  placeholder="Describa el diagnóstico del animal..."
                   required
+                  minlength="10"
                 ></textarea>
+                <small class="text-muted">Mínimo 10 caracteres</small>
               </div>
 
               <div class="col-12 mb-3">
-                <label class="form-label">Tratamiento *</label>
+                <label class="form-label fw-bold">
+                  <i class="bi bi-prescription2 me-1"></i> Tratamiento *
+                </label>
                 <textarea 
                   class="form-control" 
                   v-model="registroMedico.tratamiento"
                   rows="3"
-                  placeholder="Medicamentos, dosis, procedimientos..."
+                  placeholder="Describa el tratamiento aplicado..."
                   required
+                  minlength="10"
                 ></textarea>
+                <small class="text-muted">Mínimo 10 caracteres</small>
               </div>
 
               <div class="col-12 mb-3">
-                <label class="form-label">Notas Adicionales</label>
+                <label class="form-label fw-bold">
+                  <i class="bi bi-journal-text me-1"></i> Notas Adicionales
+                </label>
                 <textarea 
                   class="form-control" 
                   v-model="registroMedico.notas"
                   rows="2"
-                  placeholder="Observaciones, recomendaciones..."
+                  placeholder="Observaciones, recomendaciones o seguimiento..."
                 ></textarea>
               </div>
             </div>
 
-            <div class="d-flex gap-2 justify-content-end">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                Cancelar
-              </button>
-              <button type="submit" class="btn btn-primary" :disabled="guardando">
-                <span v-if="guardando" class="spinner-border spinner-border-sm me-2"></span>
-                <i v-else class="bi bi-save me-2"></i>
-                Guardar Registro
-              </button>
-            </div>
           </form>
         </div>
       </div>
@@ -301,10 +221,9 @@ import { Modal } from 'bootstrap';
 import Loading from '@/components/common/Loading.vue';
 import reporteService from '@/services/reporteService';
 import registroMedicoService from '@/services/registroMedicoService';
-import animalService from '@/services/animalService';
 import veterinariaService from '@/services/veterinariaService';
-import { alertaExito, alertaError, confirmar } from '@/utils/alertas';
-import { formatearFecha } from '@/utils/helpers';
+import { alertaExito, alertaError, confirmar, manejarErrorAPI } from '@/utils/alertas';
+import { formatearFecha, nombreCompleto } from '@/utils/helpers';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
 
@@ -316,30 +235,18 @@ const reportes = ref([]);
 const cargando = ref(false);
 const guardando = ref(false);
 const filtroEstado = ref('');
+const reportesAceptados = ref(new Set()); // Para trackear reportes aceptados localmente
 
 // Modal
 let modalInstancia = null;
 const reporteSeleccionado = ref(null);
-const modalTitulo = ref('Crear Registro Médico');
 
-// Formularios
-const nuevoAnimal = ref({
-  nombre: '',
-  especie: '',
-  edad: 0,
-  unidadEdad: 'Años',
-  sexo: '',
-  descripcion: '',
-  estado: 'Rescatado',
-  organizacion: null
-});
-
+// Formulario de Registro Médico
 const registroMedico = ref({
   tipoAtencion: '',
   diagnostico: '',
   tratamiento: '',
-  notas: '',
-  fechaAtencion: new Date().toISOString().split('T')[0]
+  notas: ''
 });
 
 // Computed
@@ -348,18 +255,32 @@ const reportesFiltrados = computed(() => {
   if (filtroEstado.value) {
     result = result.filter(r => r.estado === filtroEstado.value);
   }
-  return result;
+  // Agregar propiedad computada para saber si fue aceptado
+  return result.map(r => ({
+    ...r,
+    aceptadoPorVeterinaria: reportesAceptados.value.has(r.idReporte) || tieneRegistrosMedicos(r)
+  }));
 });
 
 // Helper: Verificar si un reporte tiene registros médicos
 const tieneRegistrosMedicos = (reporte) => {
-  // Puedes agregar lógica para verificar si tiene registros médicos
-  // Por ahora asumimos que si tiene animal, ya tiene registros
+  // Verificar si el reporte tiene el array de registros médicos
   return reporte.registrosMedicos && reporte.registrosMedicos.length > 0;
 };
 
 // Inicializar
 onMounted(async () => {
+  // Cargar reportes aceptados desde localStorage
+  const aceptadosGuardados = localStorage.getItem('reportesAceptadosVet');
+  if (aceptadosGuardados) {
+    try {
+      const ids = JSON.parse(aceptadosGuardados);
+      reportesAceptados.value = new Set(ids);
+    } catch (e) {
+      console.warn('Error al cargar reportes aceptados:', e);
+    }
+  }
+  
   await cargarReportes();
   
   // Inicializar modal
@@ -417,16 +338,27 @@ async function cargarReportes() {
 async function aceptarReporte(reporte) {
   const confirmado = await confirmar(
     `¿Aceptar el caso "${reporte.titulo}"?`,
-    'Esto te permitirá crear registros médicos para este reporte'
+    'Podrás crear el registro médico después de aceptar'
   );
   if (!confirmado || !confirmado.isConfirmed) return;
 
   try {
-    // Abrimos directamente el modal para crear el primer registro médico
-    abrirModalRegistro(reporte);
-    alertaExito('Caso aceptado. Crea el primer registro médico.');
+    console.log('✅ Aceptando reporte:', reporte.idReporte);
+    
+    // Marcar como aceptado localmente
+    reportesAceptados.value.add(reporte.idReporte);
+    
+    // Guardar en localStorage para persistencia
+    localStorage.setItem(
+      'reportesAceptadosVet', 
+      JSON.stringify([...reportesAceptados.value])
+    );
+    
+    console.log('📝 Reportes aceptados:', [...reportesAceptados.value]);
+    
+    alertaExito('Caso aceptado. Ahora puedes crear la consulta médica.');
   } catch (error) {
-    console.error('Error al aceptar reporte:', error);
+    console.error('❌ Error al aceptar reporte:', error);
     alertaError('Error al aceptar el reporte');
   }
 }
@@ -475,6 +407,10 @@ async function cerrarReporte(reporte) {
   
   if (!confirmado || !confirmado.isConfirmed) return;
   
+  await cerrarReporteAutomatico(reporte);
+}
+
+async function cerrarReporteAutomatico(reporte) {
   try {
     // Obtener datos actualizados del backend
     const { data: actual } = await reporteService.getById(reporte.idReporte);
@@ -495,7 +431,15 @@ async function cerrarReporte(reporte) {
     }
     
     await reporteService.update(reporte.idReporte, payload);
-    alertaExito('Tratamiento finalizado. Reporte cerrado exitosamente.');
+    
+    // Limpiar del localStorage ya que el caso está cerrado
+    reportesAceptados.value.delete(reporte.idReporte);
+    localStorage.setItem(
+      'reportesAceptadosVet', 
+      JSON.stringify([...reportesAceptados.value])
+    );
+    
+    alertaExito('Caso cerrado exitosamente.');
     await cargarReportes();
   } catch (error) {
     console.error('Error al cerrar reporte:', error);
@@ -504,34 +448,19 @@ async function cerrarReporte(reporte) {
 }
 
 function abrirModalRegistro(reporte) {
-  reporteSeleccionado.value = reporte;
+  console.log('🔵 Abriendo modal para reporte:', reporte.idReporte);
   
-  // Si el reporte tiene animal, cargar sus datos
-  if (reporte.animal) {
-    modalTitulo.value = `Atender a ${reporte.animal.nombre}`;
-  } else {
-    modalTitulo.value = 'Registrar Animal y Crear Expediente';
-    // Resetear formulario de animal
-    nuevoAnimal.value = {
-      nombre: '',
-      especie: '',
-      edad: 0,
-      unidadEdad: 'Años',
-      sexo: '',
-      descripcion: reporte.descripcion || '',
-      estado: 'Rescatado',
-      organizacion: reporte.organizacion || null
-    };
-  }
+  reporteSeleccionado.value = reporte;
   
   // Resetear formulario de registro médico
   registroMedico.value = {
     tipoAtencion: '',
     diagnostico: '',
     tratamiento: '',
-    notas: `Atención por reporte: ${reporte.titulo}`,
-    fechaAtencion: new Date().toISOString().split('T')[0]
+    notas: ''
   };
+  
+  console.log('📋 Formulario reseteado');
   
   modalInstancia?.show();
 }
@@ -540,73 +469,114 @@ async function guardarRegistroMedico() {
   try {
     guardando.value = true;
     
-    let idAnimal = reporteSeleccionado.value.animal?.idAnimal;
+    console.log('💾 Iniciando guardado de registro médico...');
+    console.log('📋 Datos del formulario:', registroMedico.value);
     
-    // Si no existe el animal, crearlo primero
-    if (!idAnimal) {
-      const payloadAnimal = {
-        nombre: nuevoAnimal.value.nombre,
-        especie: nuevoAnimal.value.especie,
-        edad: nuevoAnimal.value.edad,
-        unidadEdad: nuevoAnimal.value.unidadEdad,
-        sexo: nuevoAnimal.value.sexo,
-        descripcion: nuevoAnimal.value.descripcion,
-        estado: 'Rescatado',
-        idOrganizacion: reporteSeleccionado.value.organizacion?.idOrganizacion || null
-      };
-      
-      const animalCreado = await animalService.crear(payloadAnimal);
-      idAnimal = animalCreado.idAnimal;
-      
-      // Vincular animal al reporte
-      const reporteActualizado = await reporteService.obtenerPorId(reporteSeleccionado.value.idReporte);
-      const payloadReporte = {
-        titulo: reporteActualizado.titulo,
-        descripcion: reporteActualizado.descripcion,
-        ubicacion: reporteActualizado.ubicacion,
-        estado: reporteActualizado.estado,
-        fotoUrl: reporteActualizado.fotoUrl,
-        fechaReporte: reporteActualizado.fechaReporte,
-        idUsuario: reporteActualizado.usuario?.idUsuario || null,
-        idOrganizacion: reporteActualizado.organizacion?.idOrganizacion || null,
-        idVeterinaria: reporteActualizado.veterinaria?.idVeterinaria || null,
-        idAnimal: idAnimal
-      };
-      
-      await reporteService.actualizar(reporteSeleccionado.value.idReporte, payloadReporte);
+    // Validar campos obligatorios
+    if (!registroMedico.value.tipoAtencion) {
+      console.warn('⚠️ Falta tipo de atención');
+      alertaError('Debe seleccionar un tipo de atención');
+      return;
     }
     
-    // Crear registro médico
+    if (!registroMedico.value.diagnostico || registroMedico.value.diagnostico.trim() === '') {
+      console.warn('⚠️ Falta diagnóstico');
+      alertaError('Debe ingresar un diagnóstico');
+      return;
+    }
+    
+    if (!registroMedico.value.tratamiento || registroMedico.value.tratamiento.trim() === '') {
+      console.warn('⚠️ Falta tratamiento');
+      alertaError('Debe ingresar un tratamiento');
+      return;
+    }
+    
+    console.log('✅ Validaciones pasadas');
+    
+    // Obtener el ID de la veterinaria del usuario actual
+    let vetId = authStore.user?.veterinaria?.idVeterinaria || null;
+
+    if (!vetId && authStore.usuarioActual?.idUsuario) {
+      try {
+        const resp = await veterinariaService.getByUsuario(authStore.usuarioActual.idUsuario);
+        vetId = resp?.data?.idVeterinaria || null;
+      } catch (e) {
+        console.warn('No se pudo obtener la veterinaria por usuario:', e);
+      }
+    }
+
+    if (!vetId) {
+      console.error('❌ No se pudo obtener el ID de veterinaria');
+      alertaError('No se pudo obtener el ID de su veterinaria');
+      return;
+    }
+    
+    console.log('🏥 ID Veterinaria:', vetId);
+    console.log('📄 ID Reporte:', reporteSeleccionado.value.idReporte);
+    
+    // Crear registro médico asociado al reporte
+    // El backend espera exactamente esta estructura según el modelo JPA
     const payloadRegistro = {
-      tipo_atencion: registroMedico.value.tipoAtencion,
-      diagnostico: registroMedico.value.diagnostico,
-      tratamiento: registroMedico.value.tratamiento,
-      notas: registroMedico.value.notas,
-      fecha_atencion: registroMedico.value.fechaAtencion,
-      idAnimal: idAnimal,
-      idVeterinaria: authStore.user.veterinaria.idVeterinaria
+      reporte: {
+        idReporte: reporteSeleccionado.value.idReporte
+      },
+      veterinaria: {
+        idVeterinaria: vetId
+      },
+      tipoAtencion: registroMedico.value.tipoAtencion,
+      diagnostico: registroMedico.value.diagnostico.trim(),
+      tratamiento: registroMedico.value.tratamiento.trim(),
+      notas: registroMedico.value.notas ? registroMedico.value.notas.trim() : null
+      // NO enviamos fechaAtencion, el backend la genera automáticamente con @PrePersist
+    };
+
+    console.log('📤 Payload a enviar:', JSON.stringify(payloadRegistro, null, 2));
+    
+    await registroMedicoService.create(payloadRegistro);
+    
+    console.log('✅ Registro médico creado exitosamente');
+    
+    alertaExito('Registro médico creado exitosamente.');
+    
+    // Cerrar el modal primero
+    modalInstancia?.hide();
+    
+    // Ahora cerrar el reporte automáticamente
+    console.log('🔒 Cerrando reporte automáticamente...');
+    await cerrarReporteAutomatico(reporteSeleccionado.value);
+    
+    // Limpiar formulario
+    registroMedico.value = {
+      tipoAtencion: '',
+      diagnostico: '',
+      tratamiento: '',
+      notas: ''
     };
     
-    await registroMedicoService.crear(payloadRegistro);
-    
-    alertaExito('Registro médico creado exitosamente');
-    modalInstancia?.hide();
     await cargarReportes();
     
   } catch (error) {
-    console.error('Error al guardar registro médico:', error);
-    alertaError('Error al guardar el registro médico');
+    console.error('❌ Error al guardar registro médico:', error);
+    console.error('📋 Respuesta del servidor:', error.response?.data);
+    console.error('📊 Status:', error.response?.status);
+    console.error('🔍 Detalles completos:', error.response);
+    
+    // Mostrar error más específico
+    if (error.response?.data?.message) {
+      alertaError(`Error: ${error.response.data.message}`);
+    } else if (error.response?.status === 400) {
+      alertaError('Error de validación. Verifica que todos los campos estén correctos.');
+    } else if (error.response?.status === 500) {
+      alertaError('Error en el servidor. Contacta al administrador.');
+    } else {
+      manejarErrorAPI(error);
+    }
   } finally {
     guardando.value = false;
   }
 }
 
 // Funciones de utilidad
-function nombreCompleto(usuario) {
-  if (!usuario) return 'N/A';
-  return `${usuario.nombre || ''} ${usuario.apellido || ''}`.trim() || 'Sin nombre';
-}
-
 function formatearEstado(estado) {
   const estados = {
     'Pendiente': 'Pendiente',
