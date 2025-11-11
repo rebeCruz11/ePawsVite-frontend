@@ -51,25 +51,27 @@
                   </span>
                 </td>
                 <td>
+                  <!-- Solo permitir aprobar/rechazar si la solicitud está pendiente y el animal NO está adoptado -->
                   <button
-                    v-if="a.estado === 'Pendiente'"
+                    v-if="a.estado === 'Pendiente' && !(a.animal && a.animal.estado === 'Adoptado')"
                     class="btn btn-sm btn-success me-2"
                     @click="aprobar(a)"
                   >
                     <i class="bi bi-check"></i>
                   </button>
                   <button
-                    v-if="a.estado === 'Pendiente'"
+                    v-if="a.estado === 'Pendiente' && !(a.animal && a.animal.estado === 'Adoptado')"
                     class="btn btn-sm btn-danger"
                     @click="rechazar(a)"
                   >
                     <i class="bi bi-x-lg"></i>
                   </button>
+                  <!-- Si no es editable (ya fue aprobada/rechazada o el animal ya está adoptado) mostrar botón deshabilitado -->
                   <button
                     v-else
                     class="btn btn-sm btn-secondary"
                     disabled
-                    title="No puedes modificar esta adopción"
+                    :title="(a.animal && a.animal.estado === 'Adoptado') ? 'Animal adoptado: no se pueden aprobar otras solicitudes' : 'No puedes modificar esta adopción'"
                   >
                     <i class="bi bi-check-lg"></i>
                   </button>
@@ -184,16 +186,51 @@ export default {
 
     const aprobar = async (a) => {
       try {
+        // Validar estado más reciente del animal antes de aprobar
+        if (a.animal && a.animal.idAnimal) {
+          const respAnimal = await animalService.getById(a.animal.idAnimal);
+          const animalActual = respAnimal.data;
+          if (animalActual && animalActual.estado === "Adoptado") {
+            toast(
+              "El animal ya fue adoptado — no puedes aprobar otra solicitud",
+              "error"
+            );
+            await cargar();
+            return;
+          }
+        }
+
+        // Aprobar la adopción seleccionada
         await adopcionService.update(a.idAdopcion, {
           ...a,
           estado: "Aprobada",
         });
+
+        // Marcar el animal como adoptado
         if (a.animal && a.animal.idAnimal) {
           await animalService.update(a.animal.idAnimal, {
             ...a.animal,
             estado: "Adoptado",
           });
+
+          // Rechazar automáticamente otras solicitudes pendientes para el mismo animal
+          try {
+            const otrasResp = await adopcionService.getByAnimal(a.animal.idAnimal);
+            const otras = otrasResp.data || [];
+            const pendientes = otras.filter(
+              (o) => o.idAdopcion !== a.idAdopcion && o.estado === "Pendiente"
+            );
+            await Promise.all(
+              pendientes.map((o) =>
+                adopcionService.update(o.idAdopcion, { ...o, estado: "Rechazada" })
+              )
+            );
+          } catch (e) {
+            // No detener el flujo si falla rechazar otras; solo loguear/continuar
+            console.warn("No se pudieron actualizar otras solicitudes:", e);
+          }
         }
+
         toast("Adopción aprobada y animal marcado como adoptado", "success");
         await cargar();
       } catch (e) {

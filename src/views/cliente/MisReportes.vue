@@ -20,7 +20,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="reporte in reportes" :key="reporte.idReporte">
+              <tr v-for="reporte in reportesPaginados" :key="reporte.idReporte">
                 <td>{{ formatearFechaHora(reporte.fechaReporte) }}</td>
                 <td>{{ reporte.titulo }}</td>
                 <td>{{ reporte.ubicacion || 'N/A' }}</td>
@@ -107,6 +107,11 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3">
+          <small class="text-muted">Mostrando {{ reportes.length }} resultados</small>
+          <Pagination v-if="totalPaginas > 1" :pagina-actual="paginaActual" :total-paginas="totalPaginas" @cambiar-pagina="(p) => paginaActual = p" />
         </div>
       </div>
     </div>
@@ -408,6 +413,7 @@ import reporteService from '../../services/reporteService';
 import organizacionService from '../../services/organizacionService';
 import veterinariaService from '../../services/veterinariaService';
 import cloudinaryService from '../../services/cloudinaryService';
+import Pagination from '../../components/common/Pagination.vue';
 import { alertaHTML, alertaError, manejarErrorAPI, toast } from '../../utils/alertas';
 import { validarReporte } from '../../utils/validaciones';
 import { colorPorEstado, formatearEstado, formatearFechaHora } from '../../utils/helpers';
@@ -423,7 +429,9 @@ export default {
     const cargando = ref(true);
     const guardandoEdicion = ref(false);
     const guardandoReasignacion = ref(false);
-    const reportes = ref([]);
+  const reportes = ref([]);
+  const paginaActual = ref(1);
+  const itemsPorPagina = 8;
     const organizaciones = ref([]);
     const veterinarias = ref([]);
     const imageUploaderEdit = ref(null);
@@ -472,6 +480,12 @@ export default {
         cargando.value = false;
       }
     };
+
+    const totalPaginas = computed(() => Math.max(1, Math.ceil(reportes.value.length / itemsPorPagina)));
+    const reportesPaginados = computed(() => {
+      const start = (paginaActual.value - 1) * itemsPorPagina;
+      return reportes.value.slice(start, start + itemsPorPagina);
+    });
     
     const verFoto = (url) => {
       alertaHTML(`<img src="${url}" class="img-fluid" alt="Foto del reporte">`, 'Foto del Reporte');
@@ -674,8 +688,13 @@ export default {
       guardandoEdicion,
       guardandoReasignacion,
       reportes, 
-      verFoto,
+  verFoto,
       organizaciones,
+  Pagination,
+  paginaActual,
+  itemsPorPagina,
+  totalPaginas,
+  reportesPaginados,
       organizacionesFiltradas,
       organizacionesFiltradasReasignar,
       veterinarias,
