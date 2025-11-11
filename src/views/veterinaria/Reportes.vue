@@ -210,6 +210,22 @@
 
           </form>
         </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="bi bi-x-circle me-1"></i>Cancelar
+          </button>
+          <button 
+            type="button" 
+            class="btn btn-primary" 
+            @click="guardarRegistroMedico"
+            :disabled="guardando"
+          >
+            <span v-if="guardando" class="spinner-border spinner-border-sm me-2"></span>
+            <i v-else class="bi bi-save me-1"></i>
+            {{ guardando ? 'Guardando...' : 'Guardar Registro' }}
+          </button>
+        </div>
+
       </div>
     </div>
   </div>

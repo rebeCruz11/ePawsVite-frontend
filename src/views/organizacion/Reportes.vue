@@ -1,6 +1,16 @@
 <template>
   <div class="fade-in">
-    <h2 class="mb-4"><i class="bi bi-flag me-2"></i> Reportes Asignados</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="mb-0"><i class="bi bi-flag me-2"></i> Reportes Asignados</h2>
+      <button 
+        class="btn btn-primary btn-sm" 
+        @click="cargarReportes"
+        :disabled="cargando"
+      >
+        <i class="bi bi-arrow-clockwise me-1"></i>
+        {{ cargando ? 'Cargando...' : 'Actualizar' }}
+      </button>
+    </div>
 
     <Loading v-if="cargando" />
 
@@ -208,6 +218,7 @@ import Loading from '../../components/common/Loading.vue';
 import reporteService from '../../services/reporteService';
 import organizacionService from '../../services/organizacionService';
 import veterinariaService from '../../services/veterinariaService';
+import registroMedicoService from '../../services/registroMedicoService';
 import { alertaHTML, manejarErrorAPI, alertaExito, alertaError, confirmar } from '../../utils/alertas';
 import { colorPorEstado, formatearEstado, formatearFecha, nombreCompleto } from '../../utils/helpers';
 
@@ -237,10 +248,52 @@ export default {
   const org = await organizacionService.getByUsuario(authStore.usuarioActual.idUsuario);
   idOrganizacionRef.value = org?.data?.idOrganizacion || null;
   const response = await reporteService.getByOrganizacion(idOrganizacionRef.value);
-        (response.data || []).forEach(r => { 
-          r._idVetSeleccionada = '';
-        });
-        reportes.value = response.data || [];
+        
+        // Procesar cada reporte
+        const reportesConDatos = await Promise.all(
+          (response.data || []).map(async (r) => {
+            r._idVetSeleccionada = '';
+            
+            // Consultar registros médicos si tiene veterinaria asignada
+            if (r.veterinaria && r.estado === 'En_proceso') {
+              try {
+                console.log(`🔍 Consultando registros médicos para reporte ${r.idReporte}...`);
+                console.log(`📍 URL: /registros-medicos/reporte/${r.idReporte}`);
+                
+                const registros = await registroMedicoService.getByReporte(r.idReporte);
+                console.log(`📋 Respuesta completa:`, registros);
+                console.log(`📋 Tipo de respuesta:`, typeof registros);
+                console.log(`📋 Es array:`, Array.isArray(registros));
+                
+                // La respuesta puede ser: {data: [...]} o directamente [...]
+                if (Array.isArray(registros)) {
+                  r.registrosMedicos = registros;
+                  console.log(`✅ Caso 1: Array directo, ${registros.length} registros`);
+                } else if (registros.data && Array.isArray(registros.data)) {
+                  r.registrosMedicos = registros.data;
+                  console.log(`✅ Caso 2: Objeto con data, ${registros.data.length} registros`);
+                } else {
+                  r.registrosMedicos = [];
+                  console.warn(`⚠️ Formato inesperado de respuesta`);
+                }
+                
+                console.log(`📊 Total registros médicos para reporte ${r.idReporte}: ${r.registrosMedicos.length}`);
+              } catch (e) {
+                console.error(`❌ Error al cargar registros médicos para reporte ${r.idReporte}:`, e);
+                console.error(`❌ Detalles del error:`, e.response?.data);
+                console.error(`❌ Status:`, e.response?.status);
+                r.registrosMedicos = [];
+              }
+            } else {
+              r.registrosMedicos = [];
+              console.log(`⏭️ Reporte ${r.idReporte} sin veterinaria o no en proceso`);
+            }
+            
+            return r;
+          })
+        );
+        
+        reportes.value = reportesConDatos;
         
         const vets = await veterinariaService.getAll();
         veterinarias.value = vets.data || [];
@@ -566,7 +619,13 @@ export default {
     // Helper: Verificar si un reporte tiene registros médicos
     const tieneRegistrosMedicos = (reporte) => {
       // Verificar si el reporte tiene el array de registros médicos
-      return reporte.registrosMedicos && reporte.registrosMedicos.length > 0;
+      const tiene = reporte.registrosMedicos && reporte.registrosMedicos.length > 0;
+      console.log(`🔎 Verificando registros médicos para reporte ${reporte.idReporte}:`, {
+        tieneArray: !!reporte.registrosMedicos,
+        cantidad: reporte.registrosMedicos?.length || 0,
+        resultado: tiene
+      });
+      return tiene;
     };
 
     onMounted(() => cargarReportes());
