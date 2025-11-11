@@ -67,10 +67,12 @@ export const colorPorEstado = (estado) => {
     'Pendiente': 'warning',
     'Aprobada': 'success',
     'Rechazada': 'danger',
+    'Rechazado': 'danger',
     'Cancelada': 'secondary',
     'Disponible': 'success',
     'Adoptado': 'primary',
     'No_disponible': 'secondary',
+    'En proceso': 'info',
     'En_proceso': 'info',
     'Cerrado': 'secondary'
   };
@@ -98,7 +100,7 @@ export const nombreRol = (idRol) => {
   return roles[idRol] || 'Desconocido';
 };
 
-// Formatear estado para mostrar
+// Formatear estado para mostrar (reemplazar guiones bajos por espacios)
 export const formatearEstado = (estado) => {
   if (!estado) return '';
   return estado.replace(/_/g, ' ');

@@ -25,7 +25,19 @@
                 <td>{{ reporte.titulo }}</td>
                 <td>{{ reporte.ubicacion || 'N/A' }}</td>
                 <td>
-                  <span class="badge" :class="`bg-${colorPorEstado(reporte.estado)}`">
+                  <!-- Lógica especial para detectar rechazos -->
+                  <span 
+                    v-if="reporte.estado === 'Cerrado' && !reporte.organizacion"
+                    class="badge bg-danger"
+                    title="Este reporte fue rechazado"
+                  >
+                    Rechazado
+                  </span>
+                  <span 
+                    v-else
+                    class="badge" 
+                    :class="`bg-${colorPorEstado(reporte.estado)}`"
+                  >
                     {{ formatearEstado(reporte.estado) }}
                   </span>
                 </td>
@@ -57,6 +69,7 @@
                   </span>
                 </td>
                 <td>
+                  <!-- Un reporte está "rechazado" si está Cerrado pero sin organización -->
                   <button 
                     class="btn btn-sm btn-warning me-2" 
                     @click="abrirModalEditar(reporte)"
@@ -65,12 +78,25 @@
                     <i class="bi bi-pencil"></i> Editar
                   </button>
                   <button 
-                    class="btn btn-sm btn-primary" 
+                    class="btn btn-sm btn-primary me-2" 
                     @click="abrirModalReasignar(reporte)"
-                    v-if="reporte.estado === 'Rechazado'"
+                    v-if="reporte.estado === 'Cerrado' && !reporte.organizacion"
+                    title="Este reporte fue rechazado, puedes reasignarlo"
                   >
                     <i class="bi bi-arrow-repeat"></i> Reasignar
                   </button>
+                  <span 
+                    v-if="reporte.estado === 'Cerrado' && reporte.organizacion"
+                    class="badge bg-success"
+                  >
+                    <i class="bi bi-check-circle me-1"></i> Completado
+                  </span>
+                  <span 
+                    v-if="reporte.estado === 'En_proceso'"
+                    class="text-muted small"
+                  >
+                    En atención
+                  </span>
                 </td>
               </tr>
               <tr v-if="reportes.length === 0">
@@ -201,7 +227,7 @@
   </div>
 
   <!-- Modal para seleccionar organización (Edit/Reasignar) -->
-  <div class="modal fade" id="organizacionModal" tabindex="-1">
+  <div class="modal fade" id="organizacionModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
         <div class="modal-header bg-primary text-white">
@@ -209,7 +235,7 @@
             <i class="bi bi-building me-2"></i>
             Seleccionar Organización
           </h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          <button type="button" class="btn-close btn-close-white" @click="cerrarModalOrganizacion"></button>
         </div>
         <div class="modal-body">
           <div class="alert alert-info">
@@ -263,7 +289,7 @@
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <button type="button" class="btn btn-secondary" @click="cerrarModalOrganizacion">
             Cancelar
           </button>
           <button 
@@ -294,7 +320,7 @@
         <div class="modal-body">
           <div class="alert alert-warning">
             <i class="bi bi-exclamation-triangle me-2"></i>
-            Tu reporte fue rechazado. Puedes reasignarlo a una organización diferente.
+            Tu reporte fue rechazado. Selecciona una nueva organización para reasignarlo.
           </div>
 
           <div class="mb-3">
@@ -302,26 +328,48 @@
             <p class="mb-0">{{ reasignarForm.titulo }}</p>
           </div>
 
+          <!-- Búsqueda de organizaciones -->
           <div class="mb-3">
             <label class="form-label fw-bold">
-              <i class="bi bi-building me-1"></i>
-              Nueva Organización *
+              <i class="bi bi-search me-2"></i>Buscar Organización
             </label>
-            <div class="input-group">
-              <input 
-                type="text" 
-                class="form-control" 
-                :value="reasignarOrganizacionSeleccionada?.nombreOrganizacion || 'Ninguna seleccionada'"
-                readonly
-              >
-              <button 
-                type="button" 
-                class="btn btn-outline-primary" 
-                @click="abrirModalOrganizacionReasignar"
-              >
-                <i class="bi bi-search me-1"></i>
-                Buscar
-              </button>
+            <input 
+              type="text" 
+              class="form-control" 
+              v-model="busquedaOrgReasignar"
+              placeholder="Buscar por nombre o ubicación..."
+            />
+          </div>
+
+          <!-- Lista de organizaciones -->
+          <div class="list-group" style="max-height: 350px; overflow-y: auto;">
+            <button 
+              type="button"
+              v-for="org in organizacionesFiltradasReasignar" 
+              :key="org.idOrganizacion"
+              class="list-group-item list-group-item-action"
+              :class="{ 'active': reasignarOrganizacionSeleccionada?.idOrganizacion === org.idOrganizacion }"
+              @click="reasignarOrganizacionSeleccionada = org"
+            >
+              <div class="d-flex w-100 justify-content-between">
+                <h6 class="mb-1">
+                  <i class="bi bi-building me-2"></i>
+                  {{ org.nombreOrganizacion }}
+                </h6>
+                <small v-if="reasignarOrganizacionSeleccionada?.idOrganizacion === org.idOrganizacion">
+                  <i class="bi bi-check-circle-fill text-success"></i>
+                </small>
+              </div>
+              <p class="mb-1 small" v-if="org.ubicacion">
+                <i class="bi bi-geo-alt me-1"></i>{{ org.ubicacion }}
+              </p>
+              <small class="text-muted" v-if="org.telefono">
+                <i class="bi bi-telephone me-1"></i>{{ org.telefono }}
+              </small>
+            </button>
+            <div v-if="organizacionesFiltradasReasignar.length === 0" class="text-center text-muted py-4">
+              <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+              No se encontraron organizaciones
             </div>
           </div>
         </div>
@@ -381,6 +429,7 @@ export default {
     const imageUploaderEdit = ref(null);
     const archivoEditNuevo = ref(null);
     const busquedaOrg = ref('');
+    const busquedaOrgReasignar = ref('');
     const organizacionTempSeleccionada = ref(null);
     const editOrganizacionSeleccionada = ref(null);
     const reasignarOrganizacionSeleccionada = ref(null);
@@ -393,10 +442,20 @@ export default {
     let modalReasignar = null;
     let modoModal = ref(''); // 'edit' o 'reasignar'
 
-    // Computed para filtrar organizaciones
+    // Computed para filtrar organizaciones en edición
     const organizacionesFiltradas = computed(() => {
       if (!busquedaOrg.value) return organizaciones.value;
       const busqueda = busquedaOrg.value.toLowerCase();
+      return organizaciones.value.filter(org => 
+        org.nombreOrganizacion.toLowerCase().includes(busqueda) ||
+        (org.ubicacion && org.ubicacion.toLowerCase().includes(busqueda))
+      );
+    });
+
+    // Computed para filtrar organizaciones en reasignación
+    const organizacionesFiltradasReasignar = computed(() => {
+      if (!busquedaOrgReasignar.value) return organizaciones.value;
+      const busqueda = busquedaOrgReasignar.value.toLowerCase();
       return organizaciones.value.filter(org => 
         org.nombreOrganizacion.toLowerCase().includes(busqueda) ||
         (org.ubicacion && org.ubicacion.toLowerCase().includes(busqueda))
@@ -468,12 +527,19 @@ export default {
       modalOrganizacion.hide();
     };
 
+    const cerrarModalOrganizacion = () => {
+      organizacionTempSeleccionada.value = null;
+      busquedaOrg.value = '';
+      modalOrganizacion.hide();
+    };
+
     const abrirModalReasignar = (reporte) => {
       reasignarForm.value = {
         idReporte: reporte.idReporte,
         titulo: reporte.titulo
       };
       reasignarOrganizacionSeleccionada.value = null;
+      busquedaOrgReasignar.value = '';
       modalReasignar.show();
     };
 
@@ -486,17 +552,35 @@ export default {
       try {
         guardandoReasignacion.value = true;
         
+        const id = parseInt(reasignarForm.value.idReporte, 10);
+        
+        // Obtener datos actuales del reporte
+        const { data: reporteActual } = await reporteService.getById(id);
+        
+        // Preparar payload completo manteniendo los datos del reporte
         const datos = {
+          titulo: reporteActual.titulo || '',
+          descripcion: reporteActual.descripcion || '',
+          ubicacion: reporteActual.ubicacion || '',
+          estado: 'Pendiente', // Resetear a Pendiente
+          usuario: reporteActual.usuario ? { idUsuario: reporteActual.usuario.idUsuario } : null,
           organizacion: { idOrganizacion: reasignarOrganizacionSeleccionada.value.idOrganizacion },
-          estado: 'Pendiente', // Resetear estado a Pendiente
           veterinaria: null // Limpiar veterinaria
         };
 
-        await reporteService.update(reasignarForm.value.idReporte, datos);
+        // Solo agregar fotoUrl si existe
+        if (reporteActual.fotoUrl) {
+          datos.fotoUrl = reporteActual.fotoUrl;
+        }
+
+        console.log('Reasignando reporte:', datos);
+
+        await reporteService.update(id, datos);
         toast('Reporte reasignado correctamente a ' + reasignarOrganizacionSeleccionada.value.nombreOrganizacion, 'success');
         modalReasignar.hide();
         await cargarReportes();
       } catch (error) {
+        console.error('Error al reasignar:', error);
         manejarErrorAPI(error);
       } finally {
         guardandoReasignacion.value = false;
@@ -593,8 +677,10 @@ export default {
       verFoto,
       organizaciones,
       organizacionesFiltradas,
+      organizacionesFiltradasReasignar,
       veterinarias,
       busquedaOrg,
+      busquedaOrgReasignar,
       organizacionTempSeleccionada,
       editOrganizacionSeleccionada,
       reasignarOrganizacionSeleccionada,
@@ -604,6 +690,7 @@ export default {
       abrirModalOrganizacionEdit,
       abrirModalOrganizacionReasignar,
       confirmarSeleccionOrganizacion,
+      cerrarModalOrganizacion,
       abrirModalReasignar,
       confirmarReasignacion,
       reasignarForm,

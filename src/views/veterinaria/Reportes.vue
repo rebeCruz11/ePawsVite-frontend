@@ -4,79 +4,126 @@
 
     <Loading v-if="cargando" />
 
-    <div v-else class="card shadow-sm">
-      <div class="card-body">
-        <div class="table-responsive">
-          <table class="table table-hover align-middle">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Título</th>
-                <th>Descripción</th>
-                <th>Ubicación</th>
-                <th>Reportado por</th>
-                <th>Estado</th>
-                <th>Foto</th>
-                <th class="text-center" style="min-width: 200px;">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="r in reportes" :key="r.idReporte">
-                <td>{{ formatearFecha(r.fechaReporte) }}</td>
-                <td>{{ r.titulo }}</td>
-                <td>{{ truncar(r.descripcion, 50) }}</td>
-                <td>{{ r.ubicacion || 'N/A' }}</td>
-                <td>{{ nombreCompleto(r.usuario) }}</td>
-                <td>
-                  <span class="badge" :class="`bg-${colorPorEstado(r.estado)}`">
-                    {{ formatearEstado(r.estado) }}
-                  </span>
-                </td>
-                <td>
-                  <button v-if="r.fotoUrl" class="btn btn-sm btn-info" @click="verFoto(r.fotoUrl)">
-                    <i class="bi bi-image"></i>
-                  </button>
-                  <span v-else>--</span>
-                </td>
-                <td class="text-center">
-                  <div class="d-flex gap-2 justify-content-center flex-wrap">
-                    <button 
-                      v-if="r.estado === 'Pendiente'" 
-                      class="btn btn-sm btn-success" 
-                      @click="aceptarReporte(r)"
-                    >
-                      <i class="bi bi-check"></i> Aceptar
+    <div v-else>
+      <!-- Filtros -->
+      <div class="card shadow-sm mb-3">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Estado</label>
+              <select v-model="filtroEstado" class="form-select">
+                <option value="">Todos los estados</option>
+                <option value="En_proceso">En proceso</option>
+                <option value="Cerrado">Cerrado</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabla de reportes -->
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Título</th>
+                  <th>Descripción</th>
+                  <th>Ubicación</th>
+                  <th>Organización</th>
+                  <th>Estado</th>
+                  <th>Foto</th>
+                  <th class="text-center" style="min-width: 200px;">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="r in reportesFiltrados" :key="r.idReporte">
+                  <td>{{ formatearFecha(r.fechaReporte) }}</td>
+                  <td><strong>{{ r.titulo }}</strong></td>
+                  <td>{{ truncar(r.descripcion, 50) }}</td>
+                  <td>{{ r.ubicacion || 'N/A' }}</td>
+                  <td>
+                    <span v-if="r.organizacion" class="badge bg-info">
+                      {{ r.organizacion.nombreOrganizacion }}
+                    </span>
+                    <span v-else>--</span>
+                  </td>
+                  <td>
+                    <span class="badge" :class="`bg-${colorPorEstado(r.estado)}`">
+                      {{ formatearEstado(r.estado) }}
+                    </span>
+                  </td>
+                  <td>
+                    <button v-if="r.fotoUrl" class="btn btn-sm btn-info" @click="verFoto(r.fotoUrl)">
+                      <i class="bi bi-image"></i>
                     </button>
-                    <button 
-                      v-if="r.estado === 'Pendiente'" 
-                      class="btn btn-sm btn-danger" 
-                      @click="rechazarReporte(r)"
-                    >
-                      <i class="bi bi-x"></i> Rechazar
-                    </button>
-                    <button 
-                      v-if="r.estado === 'En proceso'" 
-                      class="btn btn-sm btn-primary" 
-                      @click="abrirModalRegistro(r)"
-                    >
-                      <i class="bi bi-clipboard-plus"></i> Atender
-                    </button>
-                    <button 
-                      v-if="r.estado === 'En proceso' && r.animal" 
-                      class="btn btn-sm btn-success" 
-                      @click="cerrarReporte(r)"
-                    >
-                      <i class="bi bi-check-circle"></i> Cerrar
-                    </button>
-                    <span v-if="r.estado === 'Cerrado'" class="text-muted">Finalizado</span>
-                  </div>
-                </td>
-              </tr>
-              <tr v-if="reportes.length === 0">
-                <td colspan="8" class="text-center py-3">No hay reportes asignados</td>
-              </tr>
-            </tbody>
-          </table>
+                    <span v-else>--</span>
+                  </td>
+                  <td class="text-center">
+                    <!-- Estado: En proceso (recién asignado) -->
+                    <template v-if="r.estado === 'En_proceso' && !tieneRegistrosMedicos(r)">
+                      <div class="d-flex gap-2 justify-content-center">
+                        <button 
+                          class="btn btn-sm btn-success" 
+                          @click="aceptarReporte(r)"
+                          title="Aceptar caso y crear registro médico"
+                        >
+                          <i class="bi bi-check-circle me-1"></i>Aceptar
+                        </button>
+                        <button 
+                          class="btn btn-sm btn-danger" 
+                          @click="rechazarReporte(r)"
+                          title="Rechazar caso (vuelve a la organización)"
+                        >
+                          <i class="bi bi-x-circle me-1"></i>Rechazar
+                        </button>
+                      </div>
+                    </template>
+
+                    <!-- Estado: En proceso (aceptado, con registros) -->
+                    <template v-else-if="r.estado === 'En_proceso' && tieneRegistrosMedicos(r)">
+                      <div class="d-flex gap-2 justify-content-center">
+                        <button 
+                          class="btn btn-sm btn-primary" 
+                          @click="abrirModalRegistro(r)"
+                          title="Agregar nuevo registro médico"
+                        >
+                          <i class="bi bi-clipboard-plus me-1"></i>Agregar
+                        </button>
+                        <button 
+                          class="btn btn-sm btn-success" 
+                          @click="cerrarReporte(r)"
+                          title="Tratamiento completado"
+                        >
+                          <i class="bi bi-check-circle me-1"></i>Finalizar
+                        </button>
+                      </div>
+                    </template>
+
+                    <!-- Estado: Cerrado -->
+                    <template v-else-if="r.estado === 'Cerrado'">
+                      <span class="badge bg-secondary">
+                        <i class="bi bi-check-circle me-1"></i>Completado
+                      </span>
+                    </template>
+
+                    <!-- Otros estados -->
+                    <template v-else>
+                      <span class="text-muted small">Sin acciones</span>
+                    </template>
+                  </td>
+                </tr>
+                <tr v-if="reportesFiltrados.length === 0">
+                  <td colspan="8" class="text-center py-4">
+                    <i class="bi bi-inbox fs-1 text-muted"></i>
+                    <p class="text-muted mt-2">No hay reportes asignados</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -249,7 +296,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { Modal } from 'bootstrap';
 import Loading from '@/components/common/Loading.vue';
 import reporteService from '@/services/reporteService';
@@ -268,6 +315,7 @@ const router = useRouter();
 const reportes = ref([]);
 const cargando = ref(false);
 const guardando = ref(false);
+const filtroEstado = ref('');
 
 // Modal
 let modalInstancia = null;
@@ -293,6 +341,22 @@ const registroMedico = ref({
   notas: '',
   fechaAtencion: new Date().toISOString().split('T')[0]
 });
+
+// Computed
+const reportesFiltrados = computed(() => {
+  let result = reportes.value;
+  if (filtroEstado.value) {
+    result = result.filter(r => r.estado === filtroEstado.value);
+  }
+  return result;
+});
+
+// Helper: Verificar si un reporte tiene registros médicos
+const tieneRegistrosMedicos = (reporte) => {
+  // Puedes agregar lógica para verificar si tiene registros médicos
+  // Por ahora asumimos que si tiene animal, ya tiene registros
+  return reporte.registrosMedicos && reporte.registrosMedicos.length > 0;
+};
 
 // Inicializar
 onMounted(async () => {
@@ -351,28 +415,16 @@ async function cargarReportes() {
 }
 
 async function aceptarReporte(reporte) {
-  const confirmado = await confirmar('¿Aceptar este reporte?', 'El reporte pasará a estado En proceso');
-  if (!confirmado) return;
+  const confirmado = await confirmar(
+    `¿Aceptar el caso "${reporte.titulo}"?`,
+    'Esto te permitirá crear registros médicos para este reporte'
+  );
+  if (!confirmado || !confirmado.isConfirmed) return;
 
   try {
-    const reporteActualizado = await reporteService.obtenerPorId(reporte.idReporte);
-    
-    const payload = {
-      titulo: reporteActualizado.titulo,
-      descripcion: reporteActualizado.descripcion,
-      ubicacion: reporteActualizado.ubicacion,
-      estado: 'En proceso',
-      fotoUrl: reporteActualizado.fotoUrl,
-      fechaReporte: reporteActualizado.fechaReporte,
-      idUsuario: reporteActualizado.usuario?.idUsuario || null,
-      idOrganizacion: reporteActualizado.organizacion?.idOrganizacion || null,
-      idVeterinaria: reporteActualizado.veterinaria?.idVeterinaria || null,
-      idAnimal: reporteActualizado.animal?.idAnimal || null
-    };
-    
-    await reporteService.actualizar(reporte.idReporte, payload);
-    alertaExito('Reporte aceptado exitosamente');
-    await cargarReportes();
+    // Abrimos directamente el modal para crear el primer registro médico
+    abrirModalRegistro(reporte);
+    alertaExito('Caso aceptado. Crea el primer registro médico.');
   } catch (error) {
     console.error('Error al aceptar reporte:', error);
     alertaError('Error al aceptar el reporte');
@@ -380,49 +432,74 @@ async function aceptarReporte(reporte) {
 }
 
 async function rechazarReporte(reporte) {
-  const confirmado = await confirmar('¿Rechazar este reporte?', 'Esta acción no se puede deshacer');
-  if (!confirmado) return;
+  const confirmado = await confirmar(
+    `¿Rechazar el caso "${reporte.titulo}"?`,
+    'El reporte volverá a la organización para que asignen otra veterinaria'
+  );
+  if (!confirmado || !confirmado.isConfirmed) return;
 
   try {
-    await reporteService.eliminar(reporte.idReporte);
-    alertaExito('Reporte rechazado');
+    // Obtener datos actualizados del backend
+    const { data: actual } = await reporteService.getById(reporte.idReporte);
+    
+    // Preparar payload quitando la veterinaria
+    const payload = {
+      titulo: actual.titulo,
+      descripcion: actual.descripcion,
+      ubicacion: actual.ubicacion,
+      estado: 'En_proceso', // Sigue en proceso pero sin veterinaria
+      usuario: actual.usuario ? { idUsuario: actual.usuario.idUsuario } : null,
+      organizacion: actual.organizacion ? { idOrganizacion: actual.organizacion.idOrganizacion } : null,
+      veterinaria: null // Quitar la veterinaria
+    };
+
+    // Solo agregar fotoUrl si existe
+    if (actual.fotoUrl) {
+      payload.fotoUrl = actual.fotoUrl;
+    }
+
+    await reporteService.update(reporte.idReporte, payload);
+    alertaExito('Caso rechazado. La organización podrá asignar otra veterinaria.');
     await cargarReportes();
   } catch (error) {
     console.error('Error al rechazar reporte:', error);
-    alertaError('Error al rechazar el reporte');
+    manejarErrorAPI(error);
   }
 }
 
 async function cerrarReporte(reporte) {
   const confirmado = await confirmar(
-    '¿Cerrar este reporte?',
-    'El reporte se marcará como finalizado'
+    `¿Finalizar el tratamiento de "${reporte.titulo}"?`,
+    'El reporte se marcará como completado'
   );
   
-  if (!confirmado) return;
+  if (!confirmado || !confirmado.isConfirmed) return;
   
   try {
-    const reporteActualizado = await reporteService.obtenerPorId(reporte.idReporte);
+    // Obtener datos actualizados del backend
+    const { data: actual } = await reporteService.getById(reporte.idReporte);
     
     const payload = {
-      titulo: reporteActualizado.titulo,
-      descripcion: reporteActualizado.descripcion,
-      ubicacion: reporteActualizado.ubicacion,
+      titulo: actual.titulo,
+      descripcion: actual.descripcion,
+      ubicacion: actual.ubicacion,
       estado: 'Cerrado',
-      fotoUrl: reporteActualizado.fotoUrl,
-      fechaReporte: reporteActualizado.fechaReporte,
-      idUsuario: reporteActualizado.usuario?.idUsuario || null,
-      idOrganizacion: reporteActualizado.organizacion?.idOrganizacion || null,
-      idVeterinaria: reporteActualizado.veterinaria?.idVeterinaria || null,
-      idAnimal: reporteActualizado.animal?.idAnimal || null
+      usuario: actual.usuario ? { idUsuario: actual.usuario.idUsuario } : null,
+      organizacion: actual.organizacion ? { idOrganizacion: actual.organizacion.idOrganizacion } : null,
+      veterinaria: actual.veterinaria ? { idVeterinaria: actual.veterinaria.idVeterinaria } : null
     };
+
+    // Solo agregar fotoUrl si existe
+    if (actual.fotoUrl) {
+      payload.fotoUrl = actual.fotoUrl;
+    }
     
-    await reporteService.actualizar(reporte.idReporte, payload);
-    alertaExito('Reporte cerrado exitosamente');
+    await reporteService.update(reporte.idReporte, payload);
+    alertaExito('Tratamiento finalizado. Reporte cerrado exitosamente.');
     await cargarReportes();
   } catch (error) {
     console.error('Error al cerrar reporte:', error);
-    alertaError('Error al cerrar el reporte');
+    manejarErrorAPI(error);
   }
 }
 
@@ -533,16 +610,16 @@ function nombreCompleto(usuario) {
 function formatearEstado(estado) {
   const estados = {
     'Pendiente': 'Pendiente',
-    'En proceso': 'En Proceso',
+    'En_proceso': 'En Proceso',
     'Cerrado': 'Cerrado'
   };
-  return estados[estado] || estado;
+  return estados[estado] || estado.replace(/_/g, ' ');
 }
 
 function colorPorEstado(estado) {
   const colores = {
     'Pendiente': 'warning',
-    'En proceso': 'info',
+    'En_proceso': 'info',
     'Cerrado': 'success'
   };
   return colores[estado] || 'secondary';

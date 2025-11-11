@@ -27,7 +27,7 @@
             >
               <option value="">Todos los estados</option>
               <option value="Pendiente">Pendiente</option>
-              <option value="En proceso">En proceso</option>
+              <option value="En_proceso">En proceso</option>
               <option value="Cerrado">Cerrado</option>
             </select>
           </div>
@@ -72,26 +72,89 @@
                   <span v-else>--</span>
                 </td>
                 <td class="text-center">
+                  <!-- Estado: Pendiente -->
                   <template v-if="reporte.estado === 'Pendiente'">
-                    <button class="btn btn-sm btn-success me-2" @click="aceptarReporte(reporte)">Aceptar</button>
-                    <button class="btn btn-sm btn-danger" @click="rechazarReporte(reporte)">Rechazar</button>
+                    <button class="btn btn-sm btn-success me-2" @click="aceptarReporte(reporte)">
+                      <i class="bi bi-check-circle me-1"></i>Aceptar
+                    </button>
+                    <button class="btn btn-sm btn-danger" @click="rechazarReporte(reporte)">
+                      <i class="bi bi-x-circle me-1"></i>Rechazar
+                    </button>
                   </template>
 
-                  <template v-else-if="reporte.estado === 'En proceso'">
+                  <!-- Estado: En proceso -->
+                  <template v-else-if="reporte.estado === 'En_proceso'">
                     <template v-if="!reporte.veterinaria">
-                      <div class="d-flex justify-content-center gap-2">
-                        <select class="form-select form-select-sm" v-model="reporte._idVetSeleccionada" aria-label="Seleccionar veterinaria">
-                          <option value="">Seleccionar veterinaria</option>
-                          <option v-for="v in veterinarias" :key="v.idVeterinaria" :value="v.idVeterinaria">{{ v.nombreClinica || (v.usuario && v.usuario.nombre) || `Vet ${v.idVeterinaria}` }}</option>
-                        </select>
-                        <button class="btn btn-sm btn-primary" :disabled="!reporte._idVetSeleccionada" @click="asignarVeterinaria(reporte, reporte._idVetSeleccionada)">Asignar</button>
+                      <!-- Sin veterinaria asignada: puede asignar o cerrar directamente -->
+                      <div class="d-flex flex-column gap-2 align-items-center">
+                        <div class="d-flex gap-2">
+                          <select 
+                            class="form-select form-select-sm" 
+                            v-model="reporte._idVetSeleccionada" 
+                            aria-label="Seleccionar veterinaria"
+                            style="min-width: 180px;"
+                          >
+                            <option value="">Seleccionar veterinaria</option>
+                            <option 
+                              v-for="v in veterinarias" 
+                              :key="v.idVeterinaria" 
+                              :value="v.idVeterinaria"
+                            >
+                              {{ v.nombreClinica || (v.usuario && v.usuario.nombre) || `Vet ${v.idVeterinaria}` }}
+                            </option>
+                          </select>
+                          <button 
+                            class="btn btn-sm btn-primary" 
+                            :disabled="!reporte._idVetSeleccionada" 
+                            @click="asignarVeterinaria(reporte, reporte._idVetSeleccionada)"
+                          >
+                            <i class="bi bi-send me-1"></i>Asignar
+                          </button>
+                        </div>
+                        <button 
+                          class="btn btn-sm btn-success" 
+                          @click="cerrarSinVeterinaria(reporte)"
+                          title="Cerrar reporte (animal ya rescatado, no necesita atención médica)"
+                        >
+                          <i class="bi bi-check-circle me-1"></i>Cerrar (Rescatado)
+                        </button>
                       </div>
                     </template>
                     <template v-else>
-                      <button class="btn btn-sm btn-danger" @click="cambiarEstado(reporte, 'Cerrado')">Cerrar Reporte</button>
+                      <!-- Con veterinaria asignada: puede reasignar o cerrar -->
+                      <div class="d-flex flex-column gap-2 align-items-center">
+                        <span class="badge bg-info">
+                          <i class="bi bi-hospital me-1"></i>
+                          Asignado a: {{ reporte.veterinaria.nombreClinica || 'Veterinaria' }}
+                        </span>
+                        <div class="d-flex gap-2">
+                          <button 
+                            class="btn btn-sm btn-warning" 
+                            @click="reasignarVeterinaria(reporte)"
+                            title="La veterinaria rechazó, asignar otra"
+                          >
+                            <i class="bi bi-arrow-repeat me-1"></i>Reasignar
+                          </button>
+                          <button 
+                            class="btn btn-sm btn-success" 
+                            @click="cerrarReporte(reporte)"
+                            title="Cerrar reporte (tratamiento completado)"
+                          >
+                            <i class="bi bi-check-circle me-1"></i>Cerrar
+                          </button>
+                        </div>
+                      </div>
                     </template>
                   </template>
 
+                  <!-- Estado: Cerrado -->
+                  <template v-else-if="reporte.estado === 'Cerrado'">
+                    <span class="badge bg-secondary">
+                      <i class="bi bi-check-circle me-1"></i>Cerrado
+                    </span>
+                  </template>
+
+                  <!-- Otros estados -->
                   <template v-else>
                     <span class="text-muted">No hay acciones disponibles</span>
                   </template>
@@ -176,19 +239,35 @@ export default {
     const prepararPayload = (reporte, cambios = {}) => {
       // Crear payload limpio solo con los campos que el backend espera
       const orgId = reporte?.organizacion?.idOrganizacion || idOrganizacionRef.value || null;
-      const vetFinal = cambios.veterinaria || (reporte.veterinaria ? { idVeterinaria: reporte.veterinaria.idVeterinaria } : null);
+      const vetFinal = cambios.veterinaria !== undefined ? cambios.veterinaria : (reporte.veterinaria ? { idVeterinaria: reporte.veterinaria.idVeterinaria } : null);
       const usuFinal = reporte.usuario ? { idUsuario: reporte.usuario.idUsuario } : null;
+      
+      // Asegurar que el estado sea uno de los valores válidos del ENUM
+      let estadoFinal = cambios.estado || reporte.estado || 'Pendiente';
       
       const payload = {
         titulo: reporte.titulo,
         descripcion: reporte.descripcion,
         ubicacion: reporte.ubicacion,
-        fotoUrl: reporte.fotoUrl,
-        estado: cambios.estado || reporte.estado,
-        usuario: usuFinal,
-        organizacion: orgId ? { idOrganizacion: orgId } : null,
-        veterinaria: vetFinal
+        estado: estadoFinal,
+        usuario: usuFinal
       };
+
+      // Agregar campos opcionales solo si tienen valor
+      if (reporte.fotoUrl) {
+        payload.fotoUrl = reporte.fotoUrl;
+      }
+      
+      if (orgId) {
+        payload.organizacion = { idOrganizacion: orgId };
+      }
+      
+      if (vetFinal) {
+        payload.veterinaria = vetFinal;
+      }
+
+      console.log('Payload preparado:', payload);
+      console.log('Estado enviado:', estadoFinal);
       return payload;
     };
 
@@ -209,10 +288,11 @@ export default {
           return;
         }
 
-        // Preparar payload limpio con estado En proceso
-        const payload = prepararPayload(actual, { estado: 'En proceso' });
+        // Preparar payload limpio con estado "En_proceso" (con guión bajo según la API)
+        const payload = prepararPayload(actual, { estado: 'En_proceso' });
         
         console.debug('Aceptando reporte - Payload:', payload);
+        console.log('Estado enviado:', payload.estado);
         
         await reporteService.update(id, payload);
         alertaExito('Reporte aceptado y puesto en proceso');
@@ -221,11 +301,26 @@ export default {
         console.error('Error al aceptar reporte:', {
           id: reporte?.idReporte,
           error: error?.response?.data,
-          status: error?.response?.status
+          status: error?.response?.status,
+          fullError: error
         });
         
-        if (error?.response?.data?.error) {
-          alertaError(`Error: ${error.response.data.error}`);
+        // Mostrar el error específico del backend
+        if (error?.response?.data) {
+          const errorData = error.response.data;
+          let mensajeError = 'Error al aceptar el reporte:\n';
+          
+          if (typeof errorData === 'string') {
+            mensajeError += errorData;
+          } else if (errorData.message) {
+            mensajeError += errorData.message;
+          } else if (errorData.error) {
+            mensajeError += errorData.error;
+          } else {
+            mensajeError += JSON.stringify(errorData);
+          }
+          
+          alertaError(mensajeError);
         } else {
           manejarErrorAPI(error);
         }
@@ -235,16 +330,35 @@ export default {
     const rechazarReporte = async (reporte) => {
       try {
         const conf = await confirmar(
-          `¿Deseas rechazar el reporte "${reporte.titulo}"?`,
+          `¿Deseas rechazar el reporte "${reporte.titulo}"? El usuario podrá reasignarlo a otra organización.`,
           'Confirmar rechazo'
         );
         
         if (!conf || !conf.isConfirmed) return;
 
         const id = parseInt(reporte.idReporte, 10);
-        const payload = prepararPayload(reporte, { estado: 'Cerrado' });
+        
+        // Obtener datos actualizados del backend
+        const { data: actual } = await reporteService.getById(id);
+        if (!actual || !actual.idReporte) {
+          alertaError('No se pudo cargar el reporte para actualizar.');
+          return;
+        }
+
+        // Preparar payload con estado Cerrado y sin organización
+        // Esto permite que el usuario lo reasigne
+        const payload = prepararPayload(actual, { 
+          estado: 'Cerrado',
+          veterinaria: null // Limpiar veterinaria al rechazar
+        });
+        
+        // Importante: Remover organización para que el usuario pueda reasignar
+        payload.organizacion = null;
+        
+        console.debug('Rechazando reporte - Payload:', payload);
+        
         await reporteService.update(id, payload);
-        alertaExito('Reporte rechazado');
+        alertaExito('Reporte rechazado. El usuario podrá reasignarlo a otra organización.');
         await cargarReportes();
       } catch (error) {
         console.error('Error al rechazar reporte:', {
@@ -301,7 +415,7 @@ export default {
         });
         
         await reporteService.update(id, payload);
-        alertaExito('Veterinaria asignada correctamente');
+        alertaExito('Veterinaria asignada correctamente. Esperando aceptación de la veterinaria.');
         await cargarReportes();
       } catch (error) {
         console.error('Error al asignar veterinaria al reporte:', {
@@ -310,6 +424,84 @@ export default {
           respuesta: error?.response?.data,
           status: error?.response?.status
         });
+        manejarErrorAPI(error);
+      }
+    };
+
+    const reasignarVeterinaria = async (reporte) => {
+      try {
+        const conf = await confirmar(
+          '¿La veterinaria rechazó el caso? Puedes asignar otra veterinaria.',
+          'Reasignar veterinaria'
+        );
+        
+        if (!conf || !conf.isConfirmed) return;
+
+        const id = parseInt(reporte.idReporte, 10);
+        
+        // Obtener datos actualizados
+        const { data: actual } = await reporteService.getById(id);
+        
+        // Quitar la veterinaria actual
+        const payload = prepararPayload(actual, { 
+          veterinaria: null
+        });
+        
+        await reporteService.update(id, payload);
+        alertaExito('Veterinaria removida. Ahora puedes asignar otra.');
+        await cargarReportes();
+      } catch (error) {
+        console.error('Error al reasignar veterinaria:', error);
+        manejarErrorAPI(error);
+      }
+    };
+
+    const cerrarSinVeterinaria = async (reporte) => {
+      try {
+        const conf = await confirmar(
+          `¿Cerrar el reporte "${reporte.titulo}"? Esto indica que el animal fue rescatado y no necesita atención médica.`,
+          'Cerrar reporte'
+        );
+        
+        if (!conf || !conf.isConfirmed) return;
+
+        const id = parseInt(reporte.idReporte, 10);
+        const { data: actual } = await reporteService.getById(id);
+        
+        const payload = prepararPayload(actual, { 
+          estado: 'Cerrado'
+        });
+        
+        await reporteService.update(id, payload);
+        alertaExito('Reporte cerrado exitosamente. El animal ha sido rescatado.');
+        await cargarReportes();
+      } catch (error) {
+        console.error('Error al cerrar reporte:', error);
+        manejarErrorAPI(error);
+      }
+    };
+
+    const cerrarReporte = async (reporte) => {
+      try {
+        const conf = await confirmar(
+          `¿Cerrar el reporte "${reporte.titulo}"? Esto indica que el tratamiento médico ha sido completado.`,
+          'Cerrar reporte'
+        );
+        
+        if (!conf || !conf.isConfirmed) return;
+
+        const id = parseInt(reporte.idReporte, 10);
+        const { data: actual } = await reporteService.getById(id);
+        
+        const payload = prepararPayload(actual, { 
+          estado: 'Cerrado'
+        });
+        
+        await reporteService.update(id, payload);
+        alertaExito('Reporte cerrado exitosamente. Tratamiento completado.');
+        await cargarReportes();
+      } catch (error) {
+        console.error('Error al cerrar reporte:', error);
         manejarErrorAPI(error);
       }
     };
@@ -373,6 +565,9 @@ export default {
       rechazarReporte,
       cambiarEstado,
       asignarVeterinaria,
+      reasignarVeterinaria,
+      cerrarSinVeterinaria,
+      cerrarReporte,
       irARegistrarAnimal,
       onFiltroChange,
       verFoto,
